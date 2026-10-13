@@ -2,11 +2,9 @@
 use function Laravel\Folio\{name, middleware};
 use Livewire\Volt\Component;
 use App\Models\DemandeDocument;
-use App\Models\Departement;
 use App\Models\DepotDocument;
-use App\Models\Filiere;
-use App\Models\Specialite;
 use App\Support\AnneeAcademique;
+use App\Support\CascadeAcademique;
 
 name('admin.documents');
 middleware(['auth', 'verified', 'role']);
@@ -14,12 +12,16 @@ middleware(['auth', 'verified', 'role']);
 /**
  * Documents demandes au personnel.
  *
- * On ouvre une demande, on la dirige vers un departement, une filiere, une
- * specialite ou tout le monde, et chaque agent concerne la voit dans son
- * espace. Le suivi (qui a rendu, qui n'a pas rendu) est a cote : page
- * /admin/document/suivi.
+ * On ouvre une demande et on la dirige en descendant la cascade de
+ * l'institut — cycle, departement, filiere, specialite. On s'arrete ou l'on
+ * veut : sans rien choisir, la demande s'adresse a tout le personnel.
+ *
+ * Chaque agent concerne la voit dans son espace. Le suivi (qui a rendu, qui
+ * n'a pas rendu) est a cote : page /admin/document/suivi.
  */
 new class extends Component {
+    use CascadeAcademique;
+
     public string $annee = '';
     public string $filtreStatut = '';
 
@@ -27,8 +29,6 @@ new class extends Component {
     public ?int $demande_id = null;
     public string $titre = '';
     public string $description = '';
-    public string $cible_type = 'tous';
-    public ?int $cible_id = null;
     public string $date_limite = '';
     public bool $obligatoire = true;
     public bool $plusieurs_fichiers = false;
@@ -45,6 +45,7 @@ new class extends Component {
     public function mount(): void
     {
         $this->annee = AnneeAcademique::courante();
+        $this->initialiserCascade();
     }
 
     public function with(): array
@@ -66,26 +67,7 @@ new class extends Component {
             'rendus' => $rendus,
             'attendus' => $demandes->mapWithKeys(fn (DemandeDocument $d) => [$d->id => $d->concernes()->count()]),
             'annees' => AnneeAcademique::options(),
-            'cibles' => $this->cibles(),
         ];
-    }
-
-    public function cibles(): array
-    {
-        return match ($this->cible_type) {
-            'departement' => Departement::where('status', '!=', 'failed')->orderBy('nom')->get()
-                ->map(fn ($d) => ['id' => $d->id, 'libelle' => $d->nom])->all(),
-            'filiere' => Filiere::with('departement')->where('status', '!=', 'failed')->orderBy('name')->get()
-                ->map(fn ($f) => ['id' => $f->id, 'libelle' => $f->name.($f->departement ? ' — '.$f->departement->nom : '')])->all(),
-            'specialite' => Specialite::with('filiere')->where('status', '!=', 'failed')->orderBy('name')->get()
-                ->map(fn ($s) => ['id' => $s->id, 'libelle' => $s->name.($s->filiere ? ' — '.$s->filiere->name : '')])->all(),
-            default => [],
-        };
-    }
-
-    public function updatedCibleType(): void
-    {
-        $this->cible_id = null;
     }
 
     public function functionShowCreateModal(): void
@@ -101,9 +83,8 @@ new class extends Component {
         $this->demande_id = $demande->id;
         $this->titre = $demande->titre;
         $this->description = (string) $demande->description;
-        $this->cible_type = $demande->cible_type;
-        $this->cible_id = $demande->cible_id;
         $this->date_limite = $demande->date_limite?->toDateString() ?? '';
+        $this->rechargerCascade(...array_values($demande->chaineCascade()));
         $this->obligatoire = $demande->obligatoire;
         $this->plusieurs_fichiers = $demande->plusieurs_fichiers;
         $this->formats = (string) $demande->formats;
@@ -118,23 +99,20 @@ new class extends Component {
         $valide = $this->validate([
             'titre' => 'required|string|max:150',
             'description' => 'nullable|string|max:2000',
-            'cible_type' => 'required|in:tous,departement,filiere,specialite',
-            'cible_id' => 'nullable|integer',
+            'cycle_id' => 'nullable|exists:cycles,id',
+            'departement_id' => 'nullable|exists:departements,id',
+            'filiere_id' => 'nullable|exists:filieres,id',
+            'specialite_id' => 'nullable|exists:specialites,id',
             'date_limite' => 'nullable|date',
             'formats' => 'nullable|string|max:120',
-        ], [], ['titre' => 'intitulé', 'cible_id' => 'destinataire']);
+        ], [], ['titre' => 'intitulé']);
 
-        if ($valide['cible_type'] !== 'tous' && blank($valide['cible_id'])) {
-            $this->formErrors['general'] = 'Choisissez le destinataire de la demande.';
-
-            return;
-        }
-
+        // Rien de choisi : la demande s'adresse a tout le personnel.
         $valeurs = [
             'titre' => $valide['titre'],
             'description' => $valide['description'] ?: null,
-            'cible_type' => $valide['cible_type'],
-            'cible_id' => $valide['cible_type'] === 'tous' ? null : $valide['cible_id'],
+            'cible_type' => $this->niveauCascade() ?? 'tous',
+            'cible_id' => $this->cibleCascade(),
             'annee_academique' => $this->annee,
             'date_limite' => $valide['date_limite'] ?: null,
             'obligatoire' => $this->obligatoire,
@@ -191,9 +169,8 @@ new class extends Component {
         $this->demande_id = null;
         $this->titre = '';
         $this->description = '';
-        $this->cible_type = 'tous';
-        $this->cible_id = null;
         $this->date_limite = '';
+        $this->viderCascade();
         $this->obligatoire = true;
         $this->plusieurs_fichiers = false;
         $this->formats = '';
@@ -230,7 +207,7 @@ new class extends Component {
         <div>
             <label class="block text-sm font-medium text-gray-700">Année académique</label>
             <select wire:model.live="annee" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                @foreach ($annees as $an)<option value="{{ $an }}">{{ $an }}</option>@endforeach
+                @foreach ($annees as $an)<option value="{{ $an }}" @selected($an === $annee)>{{ $an }}</option>@endforeach
             </select>
         </div>
         <div>
@@ -270,35 +247,60 @@ new class extends Component {
                                   class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Destinataires *</label>
-                        <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            @foreach (['tous' => 'Tout le personnel', 'departement' => 'Un département', 'filiere' => 'Une filière', 'specialite' => 'Une spécialité'] as $valeur => $libelle)
-                                <label class="flex items-center justify-center text-center px-3 py-2 border rounded-lg cursor-pointer text-sm
-                                        {{ $cible_type === $valeur ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-300 text-gray-600' }}">
-                                    <input type="radio" wire:model.live="cible_type" value="{{ $valeur }}" class="sr-only">
-                                    {{ $libelle }}
-                                </label>
-                            @endforeach
-                        </div>
-                    </div>
+                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">À qui on le demande</p>
 
-                    @if ($cible_type !== 'tous')
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                {{ ['departement' => 'Département', 'filiere' => 'Filière', 'specialite' => 'Spécialité'][$cible_type] }} *
-                            </label>
-                            <select wire:model="cible_id" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">— Choisir —</option>
-                                @foreach ($cibles as $cible)
-                                    <option value="{{ $cible['id'] }}">{{ $cible['libelle'] }}</option>
-                                @endforeach
-                            </select>
-                            <p class="mt-1 text-xs text-gray-500">
-                                Une demande adressée à une filière touche aussi ceux qui enseignent dans ses spécialités.
-                            </p>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Cycle</label>
+                                <select wire:model.live="cycle_id" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="">Tout le personnel</option>
+                                    @foreach ($cycles as $cycle)
+                                        <option value="{{ $cycle->id }}">{{ $cycle->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Département</label>
+                                <select wire:model.live="departement_id" @disabled(! $cycle_id)
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                                    <option value="">{{ $cycle_id ? '— Choisir —' : '—' }}</option>
+                                    @foreach ($departements as $departement)
+                                        <option value="{{ $departement->id }}">{{ $departement->nom }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Filière</label>
+                                <select wire:model.live="filiere_id" @disabled(! $departement_id)
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                                    <option value="">{{ $departement_id ? 'Tout le département' : '—' }}</option>
+                                    @foreach ($filieres as $filiere)
+                                        <option value="{{ $filiere->id }}">{{ $filiere->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Spécialité</label>
+                                <select wire:model.live="specialite_id" @disabled(! $filiere_id)
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                                    <option value="">{{ $filiere_id ? 'Toute la filière' : '—' }}</option>
+                                    @foreach ($specialites as $specialite)
+                                        <option value="{{ $specialite->id }}">{{ $specialite->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
-                    @endif
+
+                        <p class="text-xs text-gray-500">
+                            @if ($niveauRetenu = $this->niveauCascade())
+                                Adressée à <span class="font-medium text-indigo-700">{{ ['departement' => 'tout le département', 'filiere' => 'toute la filière', 'specialite' => 'la spécialité'][$niveauRetenu] }}</span>
+                                — y compris ceux qui n'enseignent que dans l'une de ses spécialités.
+                            @else
+                                Sans rien choisir, la demande s'adresse à <span class="font-medium">tout le personnel</span>.
+                            @endif
+                        </p>
+                    </div>
 
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
@@ -316,11 +318,11 @@ new class extends Component {
 
                     <div class="space-y-2">
                         <label class="flex items-center gap-3 text-sm text-gray-700">
-                            <input wire:model="obligatoire" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <input wire:model="obligatoire" type="checkbox" class="w-4 h-4 rounded border border-gray-400 text-indigo-600 focus:ring-indigo-500">
                             Document obligatoire
                         </label>
                         <label class="flex items-center gap-3 text-sm text-gray-700">
-                            <input wire:model="plusieurs_fichiers" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <input wire:model="plusieurs_fichiers" type="checkbox" class="w-4 h-4 rounded border border-gray-400 text-indigo-600 focus:ring-indigo-500">
                             Autoriser plusieurs fichiers par agent
                         </label>
                     </div>
@@ -410,7 +412,7 @@ new class extends Component {
                                 </td>
                                 <td class="p-4">
                                     <div class="flex justify-end gap-2">
-                                        <a href="/admin/document/suivi?demande={{ $demande->id }}" wire:navigate
+                                        <a href="/admin/document/suivi?demande={{ $demande->id }}"
                                            class="bouton-icone text-sky-600 hover:bg-sky-50" title="Suivi" aria-label="Suivi">
                                             <x-icone-action nom="voir" />
                                         </a>

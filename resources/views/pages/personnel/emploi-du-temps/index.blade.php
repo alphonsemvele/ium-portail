@@ -57,7 +57,7 @@ new class extends Component {
             'jours' => config('emploi_du_temps.jours'),
             'parJour' => $seances->groupBy('jour'),
             'total' => $seances->count(),
-            'heures' => $seances->sum(fn (Seance $s) => Carbon::parse($s->heure_fin)->floatDiffInHours(Carbon::parse($s->heure_debut))),
+            'heures' => $seances->sum(fn (Seance $s) => Carbon::parse($s->heure_debut)->floatDiffInHours(Carbon::parse($s->heure_fin))),
             'estSemaineCourante' => $debut->isSameWeek(Carbon::now()),
             // Les emplois du temps complets de ses classes de la semaine.
             'classes' => $seances->pluck('emploiDuTemps')->unique('id')->values(),

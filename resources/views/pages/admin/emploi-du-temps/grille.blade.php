@@ -7,6 +7,7 @@ use App\Models\Cour;
 use App\Models\EmploiDuTemps;
 use App\Models\Salle;
 use App\Models\Seance;
+use App\Models\Ue;
 use App\Models\User;
 
 name('admin.emplois-du-temps.grille');
@@ -28,6 +29,10 @@ new class extends Component {
     public ?int $seance_id = null;
 
     public string $type = 'cours';
+    // La matiere se choisit par son unite d'enseignement, comme a la saisie
+    // des notes : une specialite porte des dizaines de matieres, l'UE les
+    // ramene a une poignee.
+    public ?int $ue_id = null;
     public ?int $cour_id = null;
     public string $intitule = '';
     public ?int $enseignant_id = null;
@@ -50,6 +55,7 @@ new class extends Component {
             'types' => config('emploi_du_temps.types'),
             'creneaux' => $emploi?->grilleCreneaux() ?? [],
             'cases' => $emploi?->cases() ?? [],
+            'ues' => $emploi ? $this->uesDisponibles($emploi) : collect(),
             'cours' => $emploi ? $this->coursDisponibles($emploi) : collect(),
             'enseignants' => $emploi ? $this->enseignants($emploi) : ['affectes' => collect(), 'autres' => collect()],
             'salles' => Salle::orderBy('name')->get(['id', 'name']),
@@ -63,14 +69,36 @@ new class extends Component {
             : null;
     }
 
-    /** Les matieres de la specialite ; a defaut, celles de sa filiere. */
+    /** Les unites d'enseignement de la specialite. */
+    private function uesDisponibles(EmploiDuTemps $emploi)
+    {
+        return Ue::where('status', 'Success')
+            ->where('specialite_id', $emploi->specialite_id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+    }
+
+    /**
+     * Les matieres de l'UE choisie. Sans UE, celles de la specialite — a
+     * defaut celles de sa filiere, car toutes les matieres ne sont pas
+     * rattachees a une UE dans le catalogue.
+     */
     private function coursDisponibles(EmploiDuTemps $emploi)
     {
         return Cour::where('status', '!=', 'failed')
-            ->where(fn ($q) => $q->where('specialite_id', $emploi->specialite_id)
-                ->orWhere('filiere_id', $emploi->specialite?->filiere_id))
+            ->when($this->ue_id, fn ($q) => $q->where('ue_id', $this->ue_id))
+            ->when(! $this->ue_id, fn ($q) => $q->where(
+                fn ($q) => $q->where('specialite_id', $emploi->specialite_id)
+                    ->orWhere('filiere_id', $emploi->specialite?->filiere_id)
+            ))
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'hour_number']);
+    }
+
+    /** Changer d'UE vide la matiere : elle n'en fait plus partie. */
+    public function updatedUeId(): void
+    {
+        $this->cour_id = null;
     }
 
     /**
@@ -114,6 +142,8 @@ new class extends Component {
         $this->seance_id = $seance?->id;
         $this->type = $seance->type ?? 'cours';
         $this->cour_id = $seance->cour_id ?? null;
+        // On rouvre sur l'UE de la matiere, pour que la liste la contienne.
+        $this->ue_id = $seance?->cour?->ue_id;
         $this->intitule = $seance->intitule ?? '';
         $this->enseignant_id = $seance->enseignant_id ?? null;
         $this->salle_id = $seance->salle_id ?? null;
@@ -135,6 +165,7 @@ new class extends Component {
 
         $this->validate([
             'type' => 'required|in:cours,tpe,activite,autre',
+            'ue_id' => 'nullable|exists:ues,id',
             'cour_id' => 'nullable|exists:cours,id',
             'intitule' => 'nullable|string|max:150',
             'enseignant_id' => 'nullable|exists:users,id',
@@ -241,14 +272,14 @@ new class extends Component {
     @if (! $emploiDuTemps)
         <div class="max-w-xl mx-auto bg-white rounded-2xl shadow p-8 text-center">
             <p class="text-gray-600">Aucun emploi du temps sélectionné.</p>
-            <a href="/admin/emploi-du-temps" wire:navigate class="mt-4 inline-block px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            <a href="/admin/emploi-du-temps" class="mt-4 inline-block px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
                 Revenir à la liste
             </a>
         </div>
     @else
         <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
             <div>
-                <a href="/admin/emploi-du-temps" wire:navigate class="text-sm text-indigo-600 hover:underline">← Tous les emplois du temps</a>
+                <a href="/admin/emploi-du-temps" class="text-sm text-indigo-600 hover:underline">← Tous les emplois du temps</a>
                 <h1 class="text-3xl font-bold text-gray-800 mt-1">{{ $emploiDuTemps->specialite?->name ?? 'Spécialité supprimée' }}</h1>
                 <p class="text-gray-500">
                     {{ $emploiDuTemps->niveau }} · Semestre {{ $emploiDuTemps->semestre }} ·
@@ -276,10 +307,10 @@ new class extends Component {
                 <thead>
                     <tr>
                         <th class="w-28 border border-gray-300 bg-gray-100 p-2 text-xs font-semibold text-gray-600">Heures</th>
-                        @foreach ($jours as $numero => $jour)
+                        @foreach ($jours as $numero => $colonne)
                             <th class="border border-gray-300 bg-gray-100 p-2 text-sm font-semibold text-gray-700">
-                                {{ $jour['long'] }}
-                                <span class="block text-xs font-normal italic text-gray-400">{{ $jour['anglais'] }}</span>
+                                {{ $colonne['long'] }}
+                                <span class="block text-xs font-normal italic text-gray-400">{{ $colonne['anglais'] }}</span>
                             </th>
                         @endforeach
                     </tr>
@@ -296,7 +327,7 @@ new class extends Component {
                                     PAUSE
                                 </td>
                             @else
-                                @foreach ($jours as $numero => $jour)
+                                @foreach ($jours as $numero => $colonne)
                                     @php($seance = $cases[$numero][$index] ?? null)
                                     <td class="border border-gray-300 p-0 align-top">
                                         <button type="button" wire:click="ouvrirCase({{ $numero }}, {{ $index }})"
@@ -354,17 +385,31 @@ new class extends Component {
                         </div>
 
                         @if ($type === 'cours')
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Matière</label>
-                                <select wire:model="cour_id" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="">— Aucune (intitulé libre ci-dessous) —</option>
-                                    @foreach ($cours as $matiere)
-                                        <option value="{{ $matiere->id }}">{{ $matiere->name }}{{ $matiere->code ? ' ('.$matiere->code.')' : '' }}</option>
-                                    @endforeach
-                                </select>
-                                @if ($cours->isEmpty())
-                                    <p class="mt-1 text-sm text-amber-700">Aucune matière au catalogue pour cette spécialité : utilisez l'intitulé libre.</p>
-                                @endif
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Unité d'enseignement</label>
+                                    <select wire:model.live="ue_id" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        <option value="">Toutes les UE de la spécialité</option>
+                                        @foreach ($ues as $ue)
+                                            <option value="{{ $ue->id }}">{{ $ue->name }}{{ $ue->code ? ' ('.$ue->code.')' : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                    @if ($ues->isEmpty())
+                                        <p class="mt-1 text-xs text-gray-500">Aucune UE déclarée pour cette spécialité.</p>
+                                    @endif
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Matière</label>
+                                    <select wire:model="cour_id" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        <option value="">— Aucune —</option>
+                                        @foreach ($cours as $matiere)
+                                            <option value="{{ $matiere->id }}">{{ $matiere->name }}{{ $matiere->code ? ' ('.$matiere->code.')' : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                    @if ($cours->isEmpty())
+                                        <p class="mt-1 text-sm text-amber-700">Aucune matière ici : utilisez l'intitulé libre.</p>
+                                    @endif
+                                </div>
                             </div>
                         @endif
 

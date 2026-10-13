@@ -2,12 +2,10 @@
 use function Laravel\Folio\{name, middleware};
 use Livewire\Volt\Component;
 use App\Models\Affectation;
-use App\Models\Departement;
-use App\Models\Filiere;
-use App\Models\Specialite;
 use App\Models\User;
 use App\Services\EffectifPortail;
 use App\Support\AnneeAcademique;
+use App\Support\CascadeAcademique;
 
 name('admin.affectations');
 middleware(['auth', 'verified', 'role']);
@@ -15,22 +13,25 @@ middleware(['auth', 'verified', 'role']);
 /**
  * Affectation du personnel.
  *
- * L'administrateur dit ici de quoi chaque agent a la charge : un departement,
- * une filiere, une specialite. C'est cette liste qui decide ensuite de
- * l'emploi du temps qu'il voit et des documents qu'on peut lui demander.
+ * L'administrateur dit ici de quoi chaque agent a la charge. On descend la
+ * cascade de l'institut — cycle, departement, filiere, specialite — comme sur
+ * les ecrans de notes et de barbillard, et l'on s'arrete ou l'on veut : le
+ * dernier etage rempli est la charge confiee.
+ *
+ * C'est cette liste qui decide ensuite de l'emploi du temps que l'agent voit
+ * et des documents qu'on peut lui demander.
  *
  * Les comptes viennent du portail (App\Services\EffectifPortail) : on ne cree
  * personne ici, on repartit.
  */
 new class extends Component {
+    use CascadeAcademique;
+
     public string $annee = '';
     public string $recherche = '';
     public string $filtreRole = '';
 
-    // Formulaire d'affectation
     public ?int $agent_id = null;
-    public string $niveau = 'specialite';
-    public ?int $cible_id = null;
     public string $fonction = '';
 
     public bool $showAffecterModal = false;
@@ -45,6 +46,7 @@ new class extends Component {
     public function mount(): void
     {
         $this->annee = AnneeAcademique::courante();
+        $this->initialiserCascade();
     }
 
     /** Les agents du personnel, avec leurs charges de l'annee. */
@@ -78,42 +80,16 @@ new class extends Component {
             'roles' => collect(config('roles', []))
                 ->map(fn ($role, $code) => ['code' => $code, 'libelle' => $role['libelle'] ?? $code])
                 ->values()->all(),
-            'cibles' => $this->cibles(),
             'effectifRecuLe' => EffectifPortail::recuLe(),
             'sansAffectation' => $agents->filter(fn (User $a) => $a->affectations->isEmpty())->count(),
         ];
     }
 
-    /** Ce que l'on peut confier, au niveau choisi. */
-    public function cibles(): array
-    {
-        return match ($this->niveau) {
-            'departement' => Departement::where('status', '!=', 'failed')
-                ->orderBy('nom')->get()
-                ->map(fn ($d) => ['id' => $d->id, 'libelle' => $d->nom])->all(),
-            'filiere' => Filiere::with('departement')->where('status', '!=', 'failed')
-                ->orderBy('name')->get()
-                ->map(fn ($f) => ['id' => $f->id, 'libelle' => $f->name
-                    .($f->departement ? ' — '.$f->departement->nom : '')])->all(),
-            default => Specialite::with('filiere')->where('status', '!=', 'failed')
-                ->orderBy('name')->get()
-                ->map(fn ($s) => ['id' => $s->id, 'libelle' => $s->name
-                    .($s->filiere ? ' — '.$s->filiere->name : '')])->all(),
-        };
-    }
-
-    /** Changer de niveau vide la cible : elle ne veut plus rien dire. */
-    public function updatedNiveau(): void
-    {
-        $this->cible_id = null;
-    }
-
     public function functionShowAffecterModal(?int $agentId = null): void
     {
         $this->agent_id = $agentId;
-        $this->niveau = 'specialite';
-        $this->cible_id = null;
         $this->fonction = '';
+        $this->viderCascade();
         $this->formErrors = [];
         $this->showAffecterModal = true;
     }
@@ -122,26 +98,24 @@ new class extends Component {
     {
         $this->formErrors = [];
 
-        $valide = $this->validate([
+        $this->validate([
             'agent_id' => 'required|exists:users,id',
-            'niveau' => 'required|in:departement,filiere,specialite',
-            'cible_id' => 'required|integer',
+            'cycle_id' => 'required|exists:cycles,id',
+            'departement_id' => 'required|exists:departements,id',
+            'filiere_id' => 'nullable|exists:filieres,id',
+            'specialite_id' => 'nullable|exists:specialites,id',
             'fonction' => 'nullable|string|max:120',
             'annee' => 'required|string|max:20',
         ], [], [
             'agent_id' => 'agent',
-            'cible_id' => 'charge',
+            'cycle_id' => 'cycle',
+            'departement_id' => 'departement',
         ]);
 
-        $chaine = Affectation::chaine($valide['niveau'], (int) $valide['cible_id']);
+        // Le dernier etage rempli est la charge : departement, filiere ou specialite.
+        $chaine = Affectation::chaine($this->niveauCascade(), $this->cibleCascade());
 
-        if (blank($chaine[$valide['niveau'].'_id'])) {
-            $this->formErrors['general'] = "Cette charge n'existe plus. Rechargez la page.";
-
-            return;
-        }
-
-        $existe = Affectation::where('user_id', $valide['agent_id'])
+        $existe = Affectation::where('user_id', $this->agent_id)
             ->where('annee_academique', $this->annee)
             ->where('niveau', $chaine['niveau'])
             ->where('departement_id', $chaine['departement_id'])
@@ -156,7 +130,7 @@ new class extends Component {
         }
 
         Affectation::create($chaine + [
-            'user_id' => $valide['agent_id'],
+            'user_id' => $this->agent_id,
             'annee_academique' => $this->annee,
             'fonction' => $this->fonction ?: null,
         ]);
@@ -276,7 +250,7 @@ new class extends Component {
             <label class="block text-sm font-medium text-gray-700">Année académique</label>
             <select wire:model.live="annee" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                 @foreach ($annees as $an)
-                    <option value="{{ $an }}">{{ $an }}</option>
+                    <option value="{{ $an }}" @selected($an === $annee)>{{ $an }}</option>
                 @endforeach
             </select>
         </div>
@@ -317,7 +291,7 @@ new class extends Component {
                     </div>
                 @endif
 
-                <form wire:submit="affecter" class="space-y-6">
+                <form wire:submit="affecter" class="space-y-5">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Agent *</label>
                         <select wire:model="agent_id" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -331,36 +305,66 @@ new class extends Component {
                         @error('agent_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Niveau de la charge *</label>
-                        <div class="mt-2 grid grid-cols-3 gap-2">
-                            @foreach (['departement' => 'Département', 'filiere' => 'Filière', 'specialite' => 'Spécialité'] as $valeur => $libelle)
-                                <label class="flex items-center justify-center gap-2 px-3 py-2 border rounded-lg cursor-pointer text-sm
-                                        {{ $niveau === $valeur ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-300 text-gray-600' }}">
-                                    <input type="radio" wire:model.live="niveau" value="{{ $valeur }}" class="sr-only">
-                                    {{ $libelle }}
-                                </label>
-                            @endforeach
-                        </div>
-                        <p class="mt-2 text-xs text-gray-500">
-                            Une charge de filière emporte ses spécialités ; une charge de département emporte tout ce qu'il contient.
-                        </p>
-                    </div>
+                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">La charge confiée</p>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">
-                            {{ ['departement' => 'Département', 'filiere' => 'Filière', 'specialite' => 'Spécialité'][$niveau] }} *
-                        </label>
-                        <select wire:model="cible_id" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">— Choisir —</option>
-                            @foreach ($cibles as $cible)
-                                <option value="{{ $cible['id'] }}">{{ $cible['libelle'] }}</option>
-                            @endforeach
-                        </select>
-                        @if (empty($cibles))
-                            <p class="mt-1 text-sm text-amber-700">Rien à ce niveau pour le moment.</p>
-                        @endif
-                        @error('cible_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Cycle *</label>
+                                <select wire:model.live="cycle_id" required
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="">— Choisir —</option>
+                                    @foreach ($cycles as $cycle)
+                                        <option value="{{ $cycle->id }}">{{ $cycle->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('cycle_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Département *</label>
+                                <select wire:model.live="departement_id" required @disabled(! $cycle_id)
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                                    <option value="">{{ $cycle_id ? '— Choisir —' : 'Choisissez d’abord un cycle' }}</option>
+                                    @foreach ($departements as $departement)
+                                        <option value="{{ $departement->id }}">{{ $departement->nom }}</option>
+                                    @endforeach
+                                </select>
+                                @error('departement_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Filière</label>
+                                <select wire:model.live="filiere_id" @disabled(! $departement_id)
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                                    <option value="">{{ $departement_id ? 'Tout le département' : '—' }}</option>
+                                    @foreach ($filieres as $filiere)
+                                        <option value="{{ $filiere->id }}">{{ $filiere->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Spécialité</label>
+                                <select wire:model.live="specialite_id" @disabled(! $filiere_id)
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                                    <option value="">{{ $filiere_id ? 'Toute la filière' : '—' }}</option>
+                                    @foreach ($specialites as $specialite)
+                                        <option value="{{ $specialite->id }}">{{ $specialite->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-500">
+                            On s'arrête où l'on veut : s'arrêter au département confie tout le département,
+                            s'arrêter à la filière confie toutes ses spécialités.
+                            @if ($niveauRetenu = $this->niveauCascade())
+                                <span class="block mt-1 font-medium text-indigo-700">
+                                    Charge retenue : {{ ['departement' => 'le département', 'filiere' => 'la filière', 'specialite' => 'la spécialité'][$niveauRetenu] }}.
+                                </span>
+                            @endif
+                        </p>
                     </div>
 
                     <div>

@@ -60,6 +60,48 @@ class DemandeDocument extends Model
     }
 
     /**
+     * La cible, remontee en cascade complete (cycle, departement, filiere,
+     * specialite) : une fiche doit rouvrir avec tous ses deroulants garnis,
+     * pas seulement le dernier.
+     *
+     * @return array{cycle: ?int, departement: ?int, filiere: ?int, specialite: ?int}
+     */
+    public function chaineCascade(): array
+    {
+        $vide = ['cycle' => null, 'departement' => null, 'filiere' => null, 'specialite' => null];
+
+        return match ($this->cible_type) {
+            'specialite' => (function () {
+                $specialite = Specialite::with('filiere.departement')->find($this->cible_id);
+
+                return [
+                    'cycle' => $specialite?->filiere?->departement?->cycle_id,
+                    'departement' => $specialite?->filiere?->departement_id,
+                    'filiere' => $specialite?->filiere_id,
+                    'specialite' => $this->cible_id,
+                ];
+            })(),
+            'filiere' => (function () {
+                $filiere = Filiere::with('departement')->find($this->cible_id);
+
+                return [
+                    'cycle' => $filiere?->departement?->cycle_id,
+                    'departement' => $filiere?->departement_id,
+                    'filiere' => $this->cible_id,
+                    'specialite' => null,
+                ];
+            })(),
+            'departement' => [
+                'cycle' => Departement::find($this->cible_id)?->cycle_id,
+                'departement' => $this->cible_id,
+                'filiere' => null,
+                'specialite' => null,
+            ],
+            default => $vide,
+        };
+    }
+
+    /**
      * Les extensions acceptees.
      *
      * @return array<int, string>

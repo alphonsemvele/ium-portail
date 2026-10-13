@@ -2,9 +2,8 @@
 use function Laravel\Folio\{name, middleware};
 use Livewire\Volt\Component;
 use App\Models\EmploiDuTemps;
-use App\Models\Seance;
-use App\Models\Specialite;
 use App\Support\AnneeAcademique;
+use App\Support\CascadeAcademique;
 use Carbon\Carbon;
 
 name('admin.emplois-du-temps');
@@ -17,14 +16,19 @@ middleware(['auth', 'verified', 'role']);
  * qu'elle est en brouillon, les enseignants ne la voient pas : l'emploi du
  * temps se construit souvent a plusieurs mains et change jusqu'au dernier
  * moment.
+ *
+ * La cascade cycle > departement > filiere > specialite sert deux fois : elle
+ * filtre la liste, et elle designe la specialite de la semaine qu'on cree.
+ * On filtre donc jusqu'a la classe voulue, puis on ouvre « Nouvelle semaine »
+ * sans avoir a la rechoisir.
  */
 new class extends Component {
+    use CascadeAcademique;
+
     public string $annee = '';
-    public string $filtreSpecialite = '';
     public string $filtreSemestre = '';
 
     // Formulaire
-    public ?int $specialite_id = null;
     public string $niveau = '';
     public int $semestre = 1;
     public string $date_debut = '';
@@ -43,6 +47,7 @@ new class extends Component {
     {
         $this->annee = AnneeAcademique::courante();
         $this->date_debut = Carbon::now()->startOfWeek()->toDateString();
+        $this->initialiserCascade();
     }
 
     public function with(): array
@@ -51,19 +56,19 @@ new class extends Component {
             'emplois' => EmploiDuTemps::with(['specialite.filiere'])
                 ->withCount('seances')
                 ->where('annee_academique', $this->annee)
-                ->when($this->filtreSpecialite !== '', fn ($q) => $q->where('specialite_id', $this->filtreSpecialite))
+                ->when($this->specialite_id, fn ($q) => $q->where('specialite_id', $this->specialite_id))
+                // Sans specialite choisie, on suit l'etage au-dessus.
+                ->when(! $this->specialite_id && $this->filiere_id,
+                    fn ($q) => $q->whereIn('specialite_id', $this->specialites->pluck('id')))
                 ->when($this->filtreSemestre !== '', fn ($q) => $q->where('semestre', $this->filtreSemestre))
                 ->orderByDesc('date_debut')->orderBy('niveau')
                 ->get(),
             'annees' => AnneeAcademique::options(),
-            'specialites' => Specialite::with('filiere')->where('status', '!=', 'failed')
-                ->orderBy('name')->get(),
         ];
     }
 
     public function functionShowCreateModal(): void
     {
-        $this->specialite_id = null;
         $this->niveau = '';
         $this->semestre = 1;
         $this->date_debut = Carbon::now()->startOfWeek()->toDateString();
@@ -114,7 +119,7 @@ new class extends Component {
         ]);
 
         $this->showCreateModal = false;
-        $this->redirect('/admin/emploi-du-temps/grille?emploi='.$emploi->id, navigate: true);
+        $this->redirect('/admin/emploi-du-temps/grille?emploi='.$emploi->id);
     }
 
     public function basculerPublication(int $id): void
@@ -191,7 +196,7 @@ new class extends Component {
 
         $this->showDupliquerModal = false;
         $this->emploiElement = null;
-        $this->redirect('/admin/emploi-du-temps/grille?emploi='.$copie->id, navigate: true);
+        $this->redirect('/admin/emploi-du-temps/grille?emploi='.$copie->id);
     }
 
     public function functionShowDeleteModal(int $id): void
@@ -242,19 +247,43 @@ new class extends Component {
         </button>
     </div>
 
-    <!-- Filtres -->
-    <div class="bg-white rounded-2xl shadow p-5 mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <!-- Filtres : la cascade de l'institut, comme sur l'écran des notes -->
+    <div class="bg-white rounded-2xl shadow p-5 mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div>
-            <label class="block text-sm font-medium text-gray-700">Année académique</label>
+            <label class="block text-sm font-medium text-gray-700">Année</label>
             <select wire:model.live="annee" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                @foreach ($annees as $an)<option value="{{ $an }}">{{ $an }}</option>@endforeach
+                @foreach ($annees as $an)<option value="{{ $an }}" @selected($an === $annee)>{{ $an }}</option>@endforeach
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Cycle</label>
+            <select wire:model.live="cycle_id" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="">Tous</option>
+                @foreach ($cycles as $cycle)<option value="{{ $cycle->id }}">{{ $cycle->name }}</option>@endforeach
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Département</label>
+            <select wire:model.live="departement_id" @disabled(! $cycle_id)
+                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                <option value="">{{ $cycle_id ? 'Tous' : '—' }}</option>
+                @foreach ($departements as $departement)<option value="{{ $departement->id }}">{{ $departement->nom }}</option>@endforeach
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Filière</label>
+            <select wire:model.live="filiere_id" @disabled(! $departement_id)
+                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                <option value="">{{ $departement_id ? 'Toutes' : '—' }}</option>
+                @foreach ($filieres as $filiere)<option value="{{ $filiere->id }}">{{ $filiere->name }}</option>@endforeach
             </select>
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700">Spécialité</label>
-            <select wire:model.live="filtreSpecialite" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                <option value="">Toutes</option>
-                @foreach ($specialites as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+            <select wire:model.live="specialite_id" @disabled(! $filiere_id)
+                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                <option value="">{{ $filiere_id ? 'Toutes' : '—' }}</option>
+                @foreach ($specialites as $specialite)<option value="{{ $specialite->id }}">{{ $specialite->name }}</option>@endforeach
             </select>
         </div>
         <div>
@@ -278,14 +307,21 @@ new class extends Component {
                 @endif
 
                 <form wire:submit="save" class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Spécialité *</label>
-                        <select wire:model="specialite_id" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">— Choisir —</option>
-                            @foreach ($specialites as $s)
-                                <option value="{{ $s->id }}">{{ $s->name }}{{ $s->filiere ? ' — '.$s->filiere->name : '' }}</option>
-                            @endforeach
-                        </select>
+                    <div class="p-4 rounded-xl border {{ $specialite_id ? 'bg-indigo-50 border-indigo-200' : 'bg-amber-50 border-amber-200' }}">
+                        <p class="text-xs font-semibold uppercase tracking-wide {{ $specialite_id ? 'text-indigo-700' : 'text-amber-700' }}">Spécialité</p>
+                        @if ($specialite_id)
+                            <p class="mt-1 font-medium text-gray-800">{{ $specialites->firstWhere('id', (int) $specialite_id)?->name }}</p>
+                            <p class="text-xs text-gray-500">
+                                {{ $cycles->firstWhere('id', (int) $cycle_id)?->name }} ›
+                                {{ $departements->firstWhere('id', (int) $departement_id)?->nom }} ›
+                                {{ $filieres->firstWhere('id', (int) $filiere_id)?->name }}
+                            </p>
+                        @else
+                            <p class="mt-1 text-sm text-amber-800">
+                                Choisissez d'abord cycle, département, filière et spécialité dans les filtres ci-dessus :
+                                un emploi du temps appartient à une spécialité.
+                            </p>
+                        @endif
                         @error('specialite_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
 
@@ -314,7 +350,10 @@ new class extends Component {
                     </div>
 
                     <div class="flex justify-end gap-4 pt-2">
-                        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Créer et remplir</button>
+                        <button type="submit" @disabled(! $specialite_id)
+                                class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Créer et remplir
+                        </button>
                         <button wire:click="closeModal" type="button" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400">Annuler</button>
                     </div>
                 </form>
@@ -405,7 +444,7 @@ new class extends Component {
                                 </td>
                                 <td class="p-4">
                                     <div class="flex justify-end gap-2">
-                                        <a href="/admin/emploi-du-temps/grille?emploi={{ $emploi->id }}" wire:navigate
+                                        <a href="/admin/emploi-du-temps/grille?emploi={{ $emploi->id }}"
                                            class="bouton-icone text-indigo-600 hover:bg-indigo-50" title="Remplir la grille" aria-label="Remplir la grille">
                                             <x-icone-action nom="modifier" />
                                         </a>

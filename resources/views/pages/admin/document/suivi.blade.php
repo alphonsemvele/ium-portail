@@ -198,14 +198,14 @@ new class extends Component {
     @if (! $demandeDocument)
         <div class="max-w-xl mx-auto bg-white rounded-2xl shadow p-8 text-center">
             <p class="text-gray-600">Aucune demande sélectionnée.</p>
-            <a href="/admin/document" wire:navigate class="mt-4 inline-block px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            <a href="/admin/document" class="mt-4 inline-block px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
                 Revenir aux demandes
             </a>
         </div>
     @else
         <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
             <div>
-                <a href="/admin/document" wire:navigate class="text-sm text-indigo-600 hover:underline">← Toutes les demandes</a>
+                <a href="/admin/document" class="text-sm text-indigo-600 hover:underline">← Toutes les demandes</a>
                 <h1 class="text-3xl font-bold text-gray-800 mt-1">{{ $demandeDocument->titre }}</h1>
                 <p class="text-gray-500">
                     {{ $demandeDocument->cible() }} · {{ $demandeDocument->annee_academique }}
