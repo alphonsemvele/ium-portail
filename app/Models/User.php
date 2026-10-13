@@ -147,9 +147,9 @@ class User extends Authenticatable
     /**
      * Le personnel de l'institut.
      *
-     * Ce sont les agents de l'institut, qu'ils soient deja rattaches au
-     * portail ou non : la reprise des comptes vers le portail se fait
-     * progressivement, et l'institut ne peut pas travailler en attendant.
+     * Ce sont les agents inscrits au portail La Majestueuse pour l'institut :
+     * ceux qui l'ont choisi a leur inscription, et ceux a qui on l'a attribue.
+     * Les comptes se creent et se retirent la-bas, jamais ici.
      *
      * En sont exclus : les etudiants, les comptes supprimes, ceux que le
      * portail ne compte pas dans ses effectifs (compte technique, compte de
@@ -160,10 +160,24 @@ class User extends Authenticatable
     public function scopePersonnelDeLInstitut(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query
+            // Le compte vient du portail : c'est la seule porte d'entree.
+            ->whereNotNull('portail_id')
             ->whereNotIn('role', ['student', 'etudiant'])
             ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'failed'))
             ->where('dans_le_personnel', true)
             ->where(fn ($q) => $q->where('role', '!=', 'admin')->orWhereJsonLength('roles', '>', 1));
+    }
+
+    /**
+     * Les comptes d'avant le raccordement au portail. Ils restent en base —
+     * ils portent les notes et les paies d'hier — mais ne font plus partie
+     * du personnel.
+     */
+    public function scopeAnciensComptesLocaux(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereNull('portail_id')
+            ->whereNotIn('role', ['student', 'etudiant'])
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'failed'));
     }
 
     /** L'agent est-il deja rattache a un compte du portail ? */
