@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PortalDirectoryController;
+use App\Http\Controllers\Auth\PortalRosterController;
 use App\Http\Controllers\Auth\PortalSignOnController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -22,6 +23,13 @@ Route::get('sso/portail', PortalSignOnController::class)->name('sso.portail');
 
 // Le portail y lit le catalogue des rôles et le personnel (jeton signé).
 Route::get('portail/annuaire', PortalDirectoryController::class)->name('portail.annuaire');
+
+/*
+ * Le portail y depose l'effectif de l'institut a chaque changement d'acces.
+ * C'est ce qui nous permet de connaitre un enseignant — et donc de l'affecter
+ * ou de lui demander un document — avant sa premiere connexion.
+ */
+Route::post('portail/effectif', PortalRosterController::class)->name('portail.effectif');
 
 Route::middleware('guest')->group(function () {
     /*

@@ -11,6 +11,8 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
+        // Identifiant du compte au portail : la cle de rapprochement stable.
+        'portail_id',
         'name',
         'lastname',
         'contact',
@@ -135,6 +137,73 @@ class User extends Authenticatable
     public function paiements()
     {
         return $this->hasMany(PaiementSalaire::class, 'user_id');
+    }
+
+    /* ===================================================================
+     |  Affectations : ce dont l'agent a la charge
+     * =================================================================== */
+
+    public function affectations()
+    {
+        return $this->hasMany(\App\Models\Affectation::class);
+    }
+
+    /**
+     * Les charges de l'annee, avec de quoi les nommer.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\Affectation>
+     */
+    public function affectationsDeLAnnee(?string $annee = null)
+    {
+        return $this->affectations()
+            ->deLAnnee($annee)
+            ->with(['departement', 'filiere', 'specialite'])
+            ->get();
+    }
+
+    /**
+     * Identifiants des specialites / filieres / departements dont l'agent a
+     * la charge. Une affectation de filiere emporte ses specialites : qui
+     * repond d'une filiere repond de tout ce qu'elle contient.
+     *
+     * @return array<string, array<int, int>>
+     */
+    public function perimetre(?string $annee = null): array
+    {
+        $affectations = $this->affectations()->deLAnnee($annee)->get();
+
+        $departements = $affectations->pluck('departement_id')->filter()->unique();
+        $filieres = $affectations->pluck('filiere_id')->filter()->unique();
+        $specialites = $affectations->pluck('specialite_id')->filter()->unique();
+
+        // Charge posee sur un departement ou une filiere : tout ce qu'ils
+        // portent en fait partie.
+        $filieresLarges = $affectations->where('niveau', 'departement')->pluck('departement_id')->filter();
+        if ($filieresLarges->isNotEmpty()) {
+            $filieres = $filieres->merge(
+                Filiere::whereIn('departement_id', $filieresLarges)->pluck('id')
+            )->unique();
+        }
+
+        $specialitesLarges = $affectations->whereIn('niveau', ['departement', 'filiere'])->pluck('filiere_id')->filter()
+            ->merge($filieres);
+        if ($specialitesLarges->isNotEmpty()) {
+            $specialites = $specialites->merge(
+                Specialite::whereIn('filiere_id', $specialitesLarges)->pluck('id')
+            )->unique();
+        }
+
+        return [
+            'departements' => $departements->values()->all(),
+            'filieres' => $filieres->values()->all(),
+            'specialites' => $specialites->values()->all(),
+        ];
+    }
+
+    /** L'agent a-t-il au moins une charge cette annee ? */
+    public function estAffecte(?string $annee = null): bool
+    {
+        return $this->affectations()->deLAnnee($annee)->exists();
     }
 
     /* ===================================================================

@@ -28,6 +28,8 @@ return [
             ['titre' => 'Unités d’enseignement', 'lien' => '/admin/ue', 'icone' => 'domaines'],
             ['titre' => 'Matières', 'lien' => '/admin/cours', 'icone' => 'matieres'],
             ['titre' => 'CC & examens', 'lien' => '/admin/notes', 'icone' => 'notes'],
+            ['titre' => 'Emplois du temps', 'lien' => '/admin/emploi-du-temps', 'icone' => 'calendrier'],
+            ['titre' => 'Documents demandés', 'lien' => '/admin/document', 'icone' => 'document'],
             ['titre' => 'Rattrapage', 'lien' => '/admin/rattrapage', 'icone' => 'reinscrire'],
             ['titre' => 'Examens', 'lien' => '/admin/examen', 'icone' => 'evaluation'],
             ['titre' => 'Barbillard', 'lien' => '/admin/barbillard', 'icone' => 'barbillard'],
@@ -51,6 +53,7 @@ return [
         ['groupe' => 'Utilisateurs', 'liens' => [
             ['titre' => 'Étudiants', 'lien' => '/admin/etudiant', 'icone' => 'eleves'],
             ['titre' => 'Personnel', 'lien' => '/admin/personnel', 'icone' => 'personnel'],
+            ['titre' => 'Affectations', 'lien' => '/admin/affectation', 'icone' => 'sections'],
             ['titre' => 'Préinscriptions', 'lien' => '/admin/preinscription', 'icone' => 'ajouter'],
             ['titre' => 'Présences', 'lien' => '/admin/presence', 'icone' => 'valider'],
         ]],
@@ -116,6 +119,8 @@ return [
             ['titre' => 'Rapports', 'lien' => '/specialite/rapport', 'icone' => 'document'],
         ]],
         ['groupe' => 'Moi', 'liens' => [
+            ['titre' => 'Mon emploi du temps', 'lien' => '/personnel/emploi-du-temps', 'icone' => 'calendrier'],
+            ['titre' => 'Mes documents', 'lien' => '/personnel/documents', 'icone' => 'document'],
             ['titre' => 'Mes bulletins de paie', 'lien' => '/personnel/bulletins', 'icone' => 'argent'],
             ['titre' => 'Mon profil', 'lien' => '/personnel/profil', 'icone' => 'profil'],
         ]],

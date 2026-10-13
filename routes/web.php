@@ -7,6 +7,8 @@ use App\Mail\notifMail;
 use Illuminate\Support\Facades\Mail;
 
 use App\Http\Controllers\BulletinController;
+use App\Http\Controllers\DocumentDemandeController;
+use App\Http\Controllers\EmploiDuTempsController;
 use App\Http\Controllers\ReleveController;
 
 // Relevé de notes de l'étudiant connecté (PDF)
@@ -14,6 +16,21 @@ Route::get('/mon-releve/pdf', [ReleveController::class, 'telecharger'])
     ->middleware(['auth', 'verified'])
     ->name('releve.mine');
  
+// Emploi du temps au format du document officiel (A4 paysage).
+Route::get('/admin/emploi-du-temps/{emploi}/pdf', [EmploiDuTempsController::class, 'pdf'])
+    ->middleware(['auth', 'verified'])
+    ->name('emploi-du-temps.pdf');
+
+// Pieces deposees pour une demande de document : rangees hors du dossier
+// public, elles ne sortent que par ici.
+Route::get('/documents/fichiers/{fichier}', [DocumentDemandeController::class, 'telecharger'])
+    ->middleware(['auth', 'verified'])
+    ->name('documents.fichier');
+
+Route::get('/admin/document/{demande}/export', [DocumentDemandeController::class, 'export'])
+    ->middleware(['auth', 'verified'])
+    ->name('documents.export');
+
 // Prévisualisation inline (stream pour iframe)
 Route::get('/bulletin/{id}/preview', [BulletinController::class, 'previsualiser'])
     ->middleware(['auth', 'verified'])

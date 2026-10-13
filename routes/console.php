@@ -38,3 +38,38 @@ Artisan::command('portail:synchroniser', function () {
 
     return 0;
 })->purpose('Envoie le catalogue des rôles et le personnel au portail La Majestueuse');
+
+/*
+ * Rattrapage de l'effectif.
+ *
+ * Le portail nous envoie la liste du personnel a chaque changement d'acces.
+ * Si l'institut etait hors ligne ce jour-la, la diffusion s'est perdue : on
+ * vient alors chercher la meme liste nous-memes. A lancer apres une coupure,
+ * ou chaque nuit par le planificateur.
+ */
+Artisan::command('portail:effectif', function () {
+    if (blank(config('portail.client_id')) || blank(config('portail.client_secret'))) {
+        $this->error('PORTAIL_CLIENT_ID et PORTAIL_CLIENT_SECRET doivent être renseignés dans .env.');
+
+        return 1;
+    }
+
+    $reponse = Http::acceptJson()->timeout(30)
+        ->withToken(Portail::signer(['usage' => 'effectif']))
+        ->get(rtrim((string) config('portail.url'), '/').'/api/applications/effectif');
+
+    if ($reponse->failed()) {
+        $this->error('Le portail a refusé la demande ('.$reponse->status().') : '.($reponse->json('message') ?? $reponse->body()));
+
+        return 1;
+    }
+
+    $r = app(\App\Services\EffectifPortail::class)->appliquer($reponse->json());
+
+    $this->info(sprintf(
+        '%d compte(s) créé(s) · %d mis à jour · %d désactivé(s) · %d ignoré(s)',
+        $r['crees'], $r['mis_a_jour'], $r['desactives'], $r['ignores'],
+    ));
+
+    return 0;
+})->purpose("Récupère au portail l'effectif de l'institut et met à jour les comptes locaux");

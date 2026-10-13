@@ -12,5 +12,13 @@ return [
     'email' => env('ETABLISSEMENT_EMAIL', ''),
     'domaine' => env('ETABLISSEMENT_DOMAINE', 'ium-ndazoa.com'),
     'logo' => env('ETABLISSEMENT_LOGO', 'images/logo.png'),
+
+    /*
+     * Annee academique en cours, telle qu'elle est ecrite sur les emplois du
+     * temps et les attestations. Vide, elle se deduit de la date : la rentree
+     * est en septembre (App\Support\AnneeAcademique).
+     */
+    'annee_academique' => env('ETABLISSEMENT_ANNEE'),
+
     'modules' => [],
 ];
