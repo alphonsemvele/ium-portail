@@ -41,7 +41,7 @@ class EffectifPortail
      */
     public function appliquer(array $charge): array
     {
-        $resultat = ['crees' => 0, 'mis_a_jour' => 0, 'desactives' => 0, 'ignores' => 0];
+        $resultat = ['crees' => 0, 'mis_a_jour' => 0, 'desactives' => 0, 'ignores' => 0, 'erreurs' => 0];
         $agents = is_array($charge['effectif'] ?? null) ? $charge['effectif'] : [];
         $complet = (bool) ($charge['complet'] ?? false);
 
@@ -55,14 +55,28 @@ class EffectifPortail
                     continue;
                 }
 
-                $user = $this->retrouver($agent);
+                /*
+                 * Un agent qui resiste ne doit pas emporter les autres : la
+                 * liste entiere echouait sur une seule adresse deja prise.
+                 */
+                try {
+                    $user = $this->retrouver($agent);
 
-                if ($user) {
-                    $this->mettreAJour($user, $agent);
-                    $resultat['mis_a_jour']++;
-                } else {
-                    $user = $this->creer($agent);
-                    $resultat['crees']++;
+                    if ($user) {
+                        $this->mettreAJour($user, $agent);
+                        $resultat['mis_a_jour']++;
+                    } else {
+                        $user = $this->creer($agent);
+                        $resultat['crees']++;
+                    }
+                } catch (Throwable $e) {
+                    Log::warning('Effectif : agent non repris.', [
+                        'portail_id' => $agent['portail_id'],
+                        'raison' => $e->getMessage(),
+                    ]);
+                    $resultat['erreurs']++;
+
+                    continue;
                 }
 
                 $vus[] = $user->id;
@@ -149,19 +163,38 @@ class EffectifPortail
      */
     private function creer(array $agent): User
     {
-        // La colonne email est obligatoire et unique : a defaut d'adresse
-        // professionnelle, on en derive une, comme a la connexion SSO.
-        $email = filled($agent['email'] ?? null)
-            ? $agent['email']
-            : (($agent['matricule'] ?? null) ?: 'portail-'.$agent['portail_id']).'@portail.local';
+        /*
+         * La colonne email est obligatoire et unique ici. A defaut d'adresse
+         * professionnelle — ou si celle du portail est deja prise dans cette
+         * base, souvent par un compte etudiant — on en derive une. L'adresse
+         * vraie reste celle du portail, qui fait foi.
+         */
+        $derivee = (($agent['matricule'] ?? null) ?: 'portail-'.$agent['portail_id']).'@portail.local';
+        $email = filled($agent['email'] ?? null) ? $agent['email'] : $derivee;
 
-        return User::forceCreate($this->identite($agent) + [
+        if (User::where('email', $email)->exists()) {
+            Log::info("Effectif : adresse deja prise, une adresse derivee est utilisee.", [
+                'portail_id' => $agent['portail_id'], 'email' => $email,
+            ]);
+            $email = User::where('email', $derivee)->exists()
+                ? 'portail-'.$agent['portail_id'].'@portail.local'
+                : $derivee;
+        }
+
+        /*
+         * L'adresse retenue ci-dessus l'emporte sur celle que porte l'identite :
+         * avec l'operateur +, c'est la gauche qui gagne, et l'adresse deja
+         * prise revenait par la fenetre.
+         */
+        $valeurs = array_merge($this->identite($agent), [
             'portail_id' => $agent['portail_id'],
             'email' => $email,
             'matricule' => $agent['matricule'] ?? null,
             // Aucun mot de passe utilisable : on n'entre que par le portail.
             'password' => bcrypt(Str::random(48)),
         ]);
+
+        return User::forceCreate($valeurs);
     }
 
     /**

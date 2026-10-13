@@ -57,8 +57,8 @@ Artisan::command('portail:effectif', function () {
     }
 
     $this->info(sprintf(
-        '%d compte(s) créé(s) · %d mis à jour · %d désactivé(s) · %d ignoré(s)',
-        $r['crees'], $r['mis_a_jour'], $r['desactives'], $r['ignores'],
+        '%d compte(s) créé(s) · %d mis à jour · %d désactivé(s) · %d ignoré(s) · %d en erreur',
+        $r['crees'], $r['mis_a_jour'], $r['desactives'], $r['ignores'], $r['erreurs'] ?? 0,
     ));
 
     return 0;

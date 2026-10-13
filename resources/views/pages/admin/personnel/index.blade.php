@@ -48,7 +48,12 @@ new class extends Component {
      */
     public function actualiserDepuisLePortail(): void
     {
-        $r = app(\App\Services\EffectifPortail::class)->recupererDuPortail();
+        try {
+            $r = app(\App\Services\EffectifPortail::class)->recupererDuPortail();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Actualisation du personnel.', ['raison' => $e->getMessage()]);
+            $r = ['erreur' => "La récupération a échoué : ".$e->getMessage()];
+        }
 
         if (isset($r['erreur'])) {
             $this->notificationType = 'error';
@@ -64,6 +69,10 @@ new class extends Component {
         $this->notificationMessage = $r['crees'] + $r['mis_a_jour'] === 0
             ? "Le portail n'a transmis aucun agent pour l'institut."
             : sprintf('%d compte(s) créé(s), %d mis à jour.', $r['crees'], $r['mis_a_jour']);
+
+        if (($r['erreurs'] ?? 0) > 0) {
+            $this->notificationMessage .= ' '.$r['erreurs'].' agent(s) n’ont pas pu être repris — voir le journal.';
+        }
         $this->showNotification = true;
     }
 
