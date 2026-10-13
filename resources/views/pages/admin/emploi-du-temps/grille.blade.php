@@ -114,7 +114,7 @@ new class extends Component {
             ->where('specialite_id', $emploi->specialite_id)
             ->pluck('user_id')->unique();
 
-        $personnel = User::personnelDuPortail()
+        $personnel = User::personnelDeLInstitut()
             ->orderBy('name')->orderBy('lastname')
             ->get(['id', 'name', 'lastname', 'matricule']);
 

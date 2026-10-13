@@ -39,15 +39,8 @@ new class extends Component {
     public $notificationMessage = '';
     public $notificationType = '';
 
-    /** Montrer les anciens comptes locaux plutot que le personnel du portail. */
-    public bool $comptesLocaux = false;
-
-    public int $nombreComptesLocaux = 0;
-
-    public function updatedComptesLocaux(): void
-    {
-        $this->chargerUsers();
-    }
+    /** Combien d'agents attendent encore un compte au portail. */
+    public int $sansComptePortail = 0;
 
     public function mount()
     {
@@ -58,24 +51,23 @@ new class extends Component {
     }
 
     /**
-     * Le personnel de l'institut vient du portail La Majestueuse : y figure
-     * qui porte la tuile IUM chez lui — qu'il l'ait choisie a son inscription
-     * ou qu'on la lui ait attribuee — et qui compte dans ses effectifs. Un
-     * administrateur du portail qui n'est pas un employe n'apparait pas.
+     * Le personnel de l'institut : enseignants, coordonnateurs, agents.
      *
-     * Les comptes d'avant le raccordement restent en base : ils portent les
-     * notes et les bulletins d'hier. On les met de cote, et on peut toujours
-     * les afficher le temps de la reprise.
+     * Les administrateurs n'y figurent pas — administrer n'est pas un emploi —
+     * ni les comptes que le portail ne compte pas dans ses effectifs.
+     *
+     * Un agent apparait qu'il soit deja rattache a un compte du portail ou
+     * non : la reprise se fait au fil de l'eau, et l'institut ne peut pas
+     * attendre qu'elle soit finie pour voir son personnel.
      */
     private function chargerUsers(): void
     {
         $this->users = User::with(['cycle', 'filiere', 'specialite', 'profilSalaire.categorie'])
-            ->when(! $this->comptesLocaux, fn ($q) => $q->personnelDuPortail())
-            ->when($this->comptesLocaux, fn ($q) => $q->comptesLocaux())
+            ->personnelDeLInstitut()
             ->orderBy('name')->orderBy('lastname')
             ->get();
 
-        $this->nombreComptesLocaux = User::comptesLocaux()->count();
+        $this->sansComptePortail = User::personnelDeLInstitut()->whereNull('portail_id')->count();
     }
 
     public function voirBulletin(int $id): void
@@ -288,10 +280,20 @@ new class extends Component {
             'agent_scolarite' => 'Agent de Scolarité',
             'coord_droit'     => 'Coordonnateur Droit',
         ];
-        // Les codes ci-dessus viennent de l'ancienne saisie locale. Le portail,
-        // lui, envoie un intitule deja lisible (« Enseignant », « Chef de
-        // departement ») : on le garde tel quel plutot que de le perdre.
-        return $postes[$poste] ?? (filled($poste) ? (string) $poste : 'N/A');
+        if (isset($postes[$poste])) {
+            return $postes[$poste];
+        }
+
+        /*
+         * Hors de cette table : soit un code local jamais recense
+         * (coord_genie_info), soit l'intitule libre que le portail envoie
+         * (« Chef de departement »). Dans les deux cas on l'affiche, mis en
+         * forme comme ailleurs dans l'application, plutot que de le perdre
+         * derriere un « N/A ».
+         */
+        return filled($poste)
+            ? (string) \Illuminate\Support\Str::of((string) $poste)->replace('_', ' ')->title()
+            : 'N/A';
     }
 
     public function getSectionLabel($section_id): string
@@ -344,11 +346,7 @@ new class extends Component {
             <div class="flex items-center gap-4">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">Personnel</h1>
-                    <p class="text-gray-500">
-                        {{ $comptesLocaux
-                            ? 'Anciens comptes, d’avant le raccordement au portail'
-                            : 'Les employés de l’institut, déclarés au portail La Majestueuse' }}
-                    </p>
+                    <p class="text-gray-500">Enseignants, coordonnateurs et agents de l’institut</p>
                 </div>
             </div>
             <a href="{{ rtrim(config('portail.url'), '/') }}/admin/users" target="_blank" rel="noopener"
@@ -362,24 +360,17 @@ new class extends Component {
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {{-- D'ou vient cette liste, et ce qu'on a mis de côté. --}}
+        {{-- Ce que cette liste montre, et ce qui reste a reprendre. --}}
         <div class="mb-6 p-4 bg-sky-50 border-l-4 border-sky-400 text-sky-900 rounded-lg text-sm">
-            @if ($comptesLocaux)
-                Ces comptes datent d'avant le raccordement au portail. Ils sont
-                <strong>mis de côté</strong> : conservés parce qu'ils portent les notes et les
-                bulletins d'hier, mais ils ne font plus partie du personnel.
-            @else
-                Le personnel est celui que déclare le <strong>portail La Majestueuse</strong> : les agents
-                rattachés à IUM, qu'ils l'aient choisi à leur inscription ou qu'on le leur ait
-                attribué. Les administrateurs du portail qui ne sont pas des employés n'y figurent pas.
-                Rien ne se crée ni ne se supprime ici.
-            @endif
-            @if ($nombreComptesLocaux > 0)
-                <button wire:click="$toggle('comptesLocaux')" class="block mt-2 font-medium underline">
-                    {{ $comptesLocaux
-                        ? 'Revenir au personnel du portail'
-                        : $nombreComptesLocaux.' ancien(s) compte(s) local(aux) mis de côté — les afficher' }}
-                </button>
+            Le personnel de l'institut. Les <strong>administrateurs</strong> n'y figurent pas :
+            administrer n'est pas un emploi.
+            @if ($sansComptePortail > 0)
+                <span class="block mt-1">
+                    <strong>{{ $sansComptePortail }}</strong> agent(s) n'ont pas encore de compte au
+                    <strong>portail La Majestueuse</strong> — ils sont marqués « hors portail » ci-dessous.
+                    Pour les y faire remonter :
+                    <code class="px-1 bg-white rounded">php artisan portail:synchroniser</code>.
+                </span>
             @endif
         </div>
 
@@ -436,7 +427,13 @@ new class extends Component {
                                     </div>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 font-semibold text-gray-900">{{ trim($user->name.' '.$user->lastname) }}</td>
+                            <td class="px-4 py-3 font-semibold text-gray-900">
+                                {{ trim($user->name.' '.$user->lastname) }}
+                                @unless ($user->rattacheAuPortail())
+                                    <span class="ml-1 inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium align-middle"
+                                          title="Cet agent n'a pas encore de compte au portail La Majestueuse">hors portail</span>
+                                @endunless
+                            </td>
                             <td class="px-4 py-3">
                                 <span class="text-xs font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700">{{ $this->getRoleLabel($user->role) }}</span>
                             </td>

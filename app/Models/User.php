@@ -145,32 +145,31 @@ class User extends Authenticatable
      * =================================================================== */
 
     /**
-     * Le personnel de l'institut, tel que le portail le declare.
+     * Le personnel de l'institut.
      *
-     * Trois conditions, et une seule source : le portail. Y figure qui porte
-     * la tuile IUM chez lui — qu'il l'ait choisie a son inscription ou qu'on
-     * la lui ait attribuee — et qui compte dans ses effectifs. Un
-     * administrateur du portail qui n'est pas un employe entre dans
-     * l'application sans apparaitre ici.
+     * Ce sont les agents de l'institut, qu'ils soient deja rattaches au
+     * portail ou non : la reprise des comptes vers le portail se fait
+     * progressivement, et l'institut ne peut pas travailler en attendant.
      *
-     * Les comptes locaux d'avant le raccordement restent en base, mis de
-     * cote : ils portent les notes et les bulletins d'hier, mais ils ne sont
-     * plus le personnel d'aujourd'hui (voir scopeComptesLocaux).
+     * En sont exclus : les etudiants, les comptes supprimes, ceux que le
+     * portail ne compte pas dans ses effectifs (compte technique, compte de
+     * service), et les administrateurs — administrer n'est pas un emploi.
+     * Celui qui administre ET enseigne, lui, reste du personnel : on regarde
+     * tous ses roles, pas seulement le principal.
      */
-    public function scopePersonnelDuPortail(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    public function scopePersonnelDeLInstitut(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return $query->whereNotNull('portail_id')
-            ->where('dans_le_personnel', true)
+        return $query
             ->whereNotIn('role', ['student', 'etudiant'])
-            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'failed'));
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'failed'))
+            ->where('dans_le_personnel', true)
+            ->where(fn ($q) => $q->where('role', '!=', 'admin')->orWhereJsonLength('roles', '>', 1));
     }
 
-    /** Les anciens comptes, d'avant le raccordement au portail. */
-    public function scopeComptesLocaux(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    /** L'agent est-il deja rattache a un compte du portail ? */
+    public function rattacheAuPortail(): bool
     {
-        return $query->whereNull('portail_id')
-            ->whereNotIn('role', ['student', 'etudiant'])
-            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'failed'));
+        return filled($this->portail_id);
     }
 
     /* ===================================================================

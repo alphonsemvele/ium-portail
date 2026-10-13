@@ -132,7 +132,7 @@ class DemandeDocument extends Model
      */
     public function concernes(): Collection
     {
-        $personnel = User::personnelDuPortail();
+        $personnel = User::personnelDeLInstitut();
 
         if ($this->cible_type !== 'tous') {
             $colonne = $this->cible_type.'_id';
@@ -150,7 +150,7 @@ class DemandeDocument extends Model
     public function concerne(User $user): bool
     {
         if ($this->cible_type === 'tous') {
-            return User::personnelDuPortail()->whereKey($user->id)->exists();
+            return User::personnelDeLInstitut()->whereKey($user->id)->exists();
         }
 
         return Affectation::where('annee_academique', $this->annee_academique)

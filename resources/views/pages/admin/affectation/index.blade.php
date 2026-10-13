@@ -52,7 +52,7 @@ new class extends Component {
     /** Les agents du personnel, avec leurs charges de l'annee. */
     public function with(): array
     {
-        $agents = User::personnelDuPortail()
+        $agents = User::personnelDeLInstitut()
             ->when($this->recherche !== '', function ($q) {
                 $terme = '%'.$this->recherche.'%';
                 $q->where(fn ($q) => $q->where('name', 'like', $terme)
@@ -70,7 +70,7 @@ new class extends Component {
             'agents' => $agents,
             // La liste du formulaire ne suit pas les filtres du tableau :
             // on affecte souvent quelqu'un qu'on ne cherchait pas.
-            'tousLesAgents' => User::personnelDuPortail()
+            'tousLesAgents' => User::personnelDeLInstitut()
                 ->orderBy('name')->orderBy('lastname')
                 ->get(['id', 'name', 'lastname', 'matricule']),
             'annees' => AnneeAcademique::options(),
