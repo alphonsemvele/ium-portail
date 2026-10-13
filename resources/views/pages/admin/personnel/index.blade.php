@@ -40,6 +40,33 @@ new class extends Component {
     /** Anciens comptes locaux, conserves en base mais hors de cette liste. */
     public int $anciensComptes = 0;
 
+    /**
+     * Va chercher la liste du personnel au portail.
+     *
+     * Le portail la diffuse a chaque changement d'acces, mais tant qu'aucun
+     * n'a eu lieu l'institut ne connait personne : ce bouton amorce.
+     */
+    public function actualiserDepuisLePortail(): void
+    {
+        $r = app(\App\Services\EffectifPortail::class)->recupererDuPortail();
+
+        if (isset($r['erreur'])) {
+            $this->notificationType = 'error';
+            $this->notificationMessage = $r['erreur'];
+            $this->showNotification = true;
+
+            return;
+        }
+
+        $this->chargerUsers();
+
+        $this->notificationType = 'success';
+        $this->notificationMessage = $r['crees'] + $r['mis_a_jour'] === 0
+            ? "Le portail n'a transmis aucun agent pour l'institut."
+            : sprintf('%d compte(s) créé(s), %d mis à jour.', $r['crees'], $r['mis_a_jour']);
+        $this->showNotification = true;
+    }
+
     public function mount()
     {
         $this->cycles     = Cycle::all();
@@ -307,12 +334,20 @@ new class extends Component {
                     <p class="text-gray-500">Enseignants, coordonnateurs et agents de l’institut</p>
                 </div>
             </div>
+            <div class="flex flex-wrap items-center gap-2">
+            <button wire:click="actualiserDepuisLePortail" wire:loading.attr="disabled"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <span wire:loading.remove wire:target="actualiserDepuisLePortail">Actualiser depuis le portail</span>
+                <span wire:loading wire:target="actualiserDepuisLePortail">Récupération…</span>
+            </button>
             <a href="{{ rtrim(config('portail.url'), '/') }}/admin/users" target="_blank" rel="noopener"
                class="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl shadow"
                style="background:#4f46e5;">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                 Gérer les comptes au portail
             </a>
+            </div>
         </div>
     </div>
 
@@ -322,6 +357,14 @@ new class extends Component {
             Le personnel inscrit au <strong>portail La Majestueuse</strong> pour l'institut. Les
             comptes se créent et se retirent là-bas, la rémunération s'y gère aussi. Les
             <strong>administrateurs</strong> n'y figurent pas : administrer n'est pas un emploi.
+            <span class="block mt-1">
+                @if ($recuLe = \App\Services\EffectifPortail::recuLe())
+                    Dernière liste reçue le {{ \Carbon\Carbon::parse($recuLe)->format('d/m/Y à H:i') }}.
+                @else
+                    <strong>Aucune liste n'a encore été reçue</strong> — c'est pourquoi cette liste est vide.
+                    Cliquez sur « Actualiser depuis le portail ».
+                @endif
+            </span>
             @if ($anciensComptes > 0)
                 <span class="block mt-1 text-sky-800">
                     {{ $anciensComptes }} ancien(s) compte(s) d'avant le raccordement restent conservés
@@ -342,7 +385,8 @@ new class extends Component {
                  x-transition:leave="transition ease-in duration-150"
                  x-transition:leave-end="opacity-0">
                 <div class="flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-medium" style="background:#111827;color:white;">
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:#22c55e;">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                         style="background:{{ $notificationType === 'error' ? '#dc2626' : '#22c55e' }};">
                         <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                     </div>
                     {{ $notificationMessage }}

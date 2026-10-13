@@ -6,7 +6,10 @@ use App\Models\User;
 use App\Support\Portail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Reception de l'effectif envoye par le portail La Majestueuse.
@@ -74,8 +77,10 @@ class EffectifPortail
             if ($complet) {
                 $resultat['desactives'] = User::whereNotNull('portail_id')
                     ->whereNotIn('id', $vus ?: [0])
-                    ->where('peut_se_connecter', true)
-                    ->update(['peut_se_connecter' => false]);
+                    ->where(fn ($q) => $q->where('peut_se_connecter', true)->orWhere('dans_le_personnel', true))
+                    // Il n'est plus rattache a l'institut : il n'entre plus, et
+                    // il quitte le personnel. Son compte et son histoire restent.
+                    ->update(['peut_se_connecter' => false, 'dans_le_personnel' => false]);
             }
 
             Cache::forever('portail.effectif.recu_le', now()->toDateTimeString());
@@ -188,6 +193,39 @@ class EffectifPortail
             'role' => $roles ? config("roles.{$roles[0]}.role_local", $roles[0]) : 'personnel',
             'roles' => $roles ?: null,
         ];
+    }
+
+    /**
+     * Va chercher la liste au portail et l'applique.
+     *
+     * Le portail diffuse deja a chaque changement d'acces ; ceci sert quand
+     * l'institut etait hors ligne ce jour-la, ou tout simplement la premiere
+     * fois — avant la premiere diffusion, l'institut ne connait personne.
+     *
+     * @return array<string, mixed> le resultat, ou ['erreur' => '…']
+     */
+    public function recupererDuPortail(): array
+    {
+        if (blank(config('portail.client_id')) || blank(config('portail.client_secret'))) {
+            return ['erreur' => "La liaison avec le portail n'est pas configurée (PORTAIL_CLIENT_ID et PORTAIL_CLIENT_SECRET)."];
+        }
+
+        try {
+            $reponse = Http::acceptJson()->timeout(30)
+                ->withToken(Portail::signer(['usage' => 'effectif']))
+                ->get(rtrim((string) config('portail.url'), '/').'/api/applications/effectif');
+        } catch (Throwable $e) {
+            Log::warning('Effectif : le portail ne répond pas.', ['raison' => $e->getMessage()]);
+
+            return ['erreur' => 'Le portail ne répond pas.'];
+        }
+
+        if ($reponse->failed()) {
+            return ['erreur' => 'Le portail a refusé la demande ('.$reponse->status().') : '
+                .($reponse->json('message') ?? 'réponse inattendue').'.'];
+        }
+
+        return $this->appliquer((array) $reponse->json());
     }
 
     /** Date de la derniere liste recue, pour l'ecran d'administration. */
