@@ -17,7 +17,7 @@ class Affectation extends Model
 {
     protected $fillable = [
         'user_id', 'niveau', 'departement_id', 'filiere_id', 'specialite_id',
-        'annee_academique', 'fonction',
+        'ue_id', 'cour_id', 'annee_academique', 'fonction',
     ];
 
     public function user(): BelongsTo
@@ -40,6 +40,16 @@ class Affectation extends Model
         return $this->belongsTo(Specialite::class);
     }
 
+    public function ue(): BelongsTo
+    {
+        return $this->belongsTo(Ue::class);
+    }
+
+    public function matiere(): BelongsTo
+    {
+        return $this->belongsTo(Cour::class, 'cour_id');
+    }
+
     public function scopeDeLAnnee(Builder $query, ?string $annee = null): Builder
     {
         return $query->where('annee_academique', $annee ?: AnneeAcademique::courante());
@@ -47,36 +57,63 @@ class Affectation extends Model
 
     /**
      * Pose une charge au niveau choisi et remplit les parents par deduction :
-     * affecter quelqu'un a une specialite, c'est l'affecter a sa filiere et a
-     * son departement.
+     * affecter quelqu'un a une matiere, c'est l'affecter a son UE, a sa
+     * specialite, a sa filiere et a son departement.
      *
-     * @return array{niveau: string, departement_id: ?int, filiere_id: ?int, specialite_id: ?int}
+     * @return array{niveau: string, departement_id: ?int, filiere_id: ?int, specialite_id: ?int, ue_id: ?int, cour_id: ?int}
      */
     public static function chaine(string $niveau, int $cible): array
     {
+        $vide = [
+            'departement_id' => null, 'filiere_id' => null,
+            'specialite_id' => null, 'ue_id' => null, 'cour_id' => null,
+        ];
+
         return match ($niveau) {
-            'specialite' => (function () use ($cible) {
+            'cours' => (function () use ($vide, $cible) {
+                $matiere = Cour::with('ue.specialite.filiere')->find($cible);
+                $specialite = $matiere?->ue?->specialite ?? $matiere?->specialite;
+
+                return array_merge($vide, [
+                    'niveau' => 'cours',
+                    'cour_id' => $cible,
+                    'ue_id' => $matiere?->ue_id,
+                    'specialite_id' => $specialite?->id ?? $matiere?->specialite_id,
+                    'filiere_id' => $specialite?->filiere_id ?? $matiere?->filiere_id,
+                    'departement_id' => $specialite?->filiere?->departement_id,
+                ]);
+            })(),
+            'ue' => (function () use ($vide, $cible) {
+                $ue = Ue::with('specialite.filiere')->find($cible);
+
+                return array_merge($vide, [
+                    'niveau' => 'ue',
+                    'cour_id' => null,
+                    'ue_id' => $cible,
+                    'specialite_id' => $ue?->specialite_id,
+                    'filiere_id' => $ue?->specialite?->filiere_id ?? $ue?->filiere_id,
+                    'departement_id' => $ue?->specialite?->filiere?->departement_id,
+                ]);
+            })(),
+            'specialite' => (function () use ($vide, $cible) {
                 $specialite = Specialite::with('filiere')->find($cible);
 
-                return [
+                return array_merge($vide, [
                     'niveau' => 'specialite',
                     'specialite_id' => $cible,
                     'filiere_id' => $specialite?->filiere_id,
                     'departement_id' => $specialite?->filiere?->departement_id,
-                ];
+                ]);
             })(),
-            'filiere' => [
+            'filiere' => array_merge($vide, [
                 'niveau' => 'filiere',
-                'specialite_id' => null,
                 'filiere_id' => $cible,
                 'departement_id' => Filiere::find($cible)?->departement_id,
-            ],
-            default => [
+            ]),
+            default => array_merge($vide, [
                 'niveau' => 'departement',
-                'specialite_id' => null,
-                'filiere_id' => null,
                 'departement_id' => $cible,
-            ],
+            ]),
         };
     }
 
@@ -84,19 +121,23 @@ class Affectation extends Model
     public function intitule(): string
     {
         return match ($this->niveau) {
+            'cours' => $this->matiere?->name ?? 'Matière supprimée',
+            'ue' => $this->ue?->name ?? 'UE supprimée',
             'specialite' => $this->specialite?->name ?? 'Spécialité supprimée',
             'filiere' => $this->filiere?->name ?? 'Filière supprimée',
             default => $this->departement?->nom ?? 'Département supprimé',
         };
     }
 
-    /** Le chemin complet : Département › Filière › Spécialité. */
+    /** Le chemin complet : Département › Filière › Spécialité › UE › Matière. */
     public function chemin(): string
     {
         return collect([
             $this->departement?->nom,
             $this->filiere?->name,
             $this->specialite?->name,
+            $this->ue?->name,
+            $this->matiere?->name,
         ])->filter()->implode(' › ');
     }
 }

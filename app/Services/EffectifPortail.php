@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -94,13 +95,31 @@ class EffectifPortail
                     ->where(fn ($q) => $q->where('peut_se_connecter', true)->orWhere('dans_le_personnel', true))
                     // Il n'est plus rattache a l'institut : il n'entre plus, et
                     // il quitte le personnel. Son compte et son histoire restent.
-                    ->update(['peut_se_connecter' => false, 'dans_le_personnel' => false]);
+                    ->update($this->colonnesConnues(['peut_se_connecter' => false, 'dans_le_personnel' => false]));
             }
 
             Cache::forever('portail.effectif.recu_le', now()->toDateTimeString());
 
             return $resultat;
         });
+    }
+
+    /**
+     * Ne garde que les colonnes que cette application possede vraiment.
+     *
+     * Les trois instituts partagent le meme socle mais pas la meme table :
+     * `sexe` n'existe qu'a IUM, par exemple. Le portail, lui, envoie la meme
+     * fiche a tout le monde — on y prend ce qui a un sens ici.
+     *
+     * @param  array<string, mixed>  $valeurs
+     * @return array<string, mixed>
+     */
+    private function colonnesConnues(array $valeurs): array
+    {
+        static $connues = null;
+        $connues ??= array_flip(Schema::getColumnListing((new User)->getTable()));
+
+        return array_intersect_key($valeurs, $connues);
     }
 
     /**
@@ -155,7 +174,7 @@ class EffectifPortail
             unset($valeurs['peut_se_connecter']);
         }
 
-        $user->forceFill($valeurs + ['portail_id' => $agent['portail_id']])->save();
+        $user->forceFill($this->colonnesConnues($valeurs + ['portail_id' => $agent['portail_id']]))->save();
     }
 
     /**
@@ -194,7 +213,7 @@ class EffectifPortail
             'password' => bcrypt(Str::random(48)),
         ]);
 
-        return User::forceCreate($valeurs);
+        return User::forceCreate($this->colonnesConnues($valeurs));
     }
 
     /**

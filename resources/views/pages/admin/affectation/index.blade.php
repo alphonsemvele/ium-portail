@@ -34,6 +34,9 @@ new class extends Component {
     public ?int $agent_id = null;
     public string $fonction = '';
 
+    /** Matieres confiees : on en donne souvent plusieurs d'un coup. */
+    public array $matieres_choisies = [];
+
     public bool $showAffecterModal = false;
     public bool $showRetirerModal = false;
     public ?Affectation $affectationElement = null;
@@ -86,6 +89,7 @@ new class extends Component {
     {
         $this->agent_id = $agentId;
         $this->fonction = '';
+        $this->matieres_choisies = [];
         $this->viderCascade();
         $this->formErrors = [];
         $this->showAffecterModal = true;
@@ -101,6 +105,9 @@ new class extends Component {
             'departement_id' => 'required|exists:departements,id',
             'filiere_id' => 'nullable|exists:filieres,id',
             'specialite_id' => 'nullable|exists:specialites,id',
+            'ue_id' => 'nullable|exists:ues,id',
+            'matieres_choisies' => 'array',
+            'matieres_choisies.*' => 'integer|exists:cours,id',
             'fonction' => 'nullable|string|max:120',
             'annee' => 'required|string|max:20',
         ], [], [
@@ -109,31 +116,57 @@ new class extends Component {
             'departement_id' => 'departement',
         ]);
 
-        // Le dernier etage rempli est la charge : departement, filiere ou specialite.
-        $chaine = Affectation::chaine($this->niveauCascade(), $this->cibleCascade());
+        /*
+         * Des matieres cochees font autant de charges — c'est le cas courant :
+         * on confie trois matieres a un enseignant d'un coup. Sinon, la charge
+         * est au dernier etage rempli de la cascade.
+         */
+        $cibles = $this->matieres_choisies
+            ? collect($this->matieres_choisies)->map(fn ($id) => ['cours', (int) $id])->all()
+            : [[$this->niveauCascade(), $this->cibleCascade()]];
 
-        $existe = Affectation::where('user_id', $this->agent_id)
-            ->where('annee_academique', $this->annee)
-            ->where('niveau', $chaine['niveau'])
-            ->where('departement_id', $chaine['departement_id'])
-            ->where('filiere_id', $chaine['filiere_id'])
-            ->where('specialite_id', $chaine['specialite_id'])
-            ->exists();
+        $posees = 0;
+        $deja = 0;
 
-        if ($existe) {
-            $this->formErrors['general'] = 'Cet agent a déjà cette charge pour '.$this->annee.'.';
+        foreach ($cibles as [$niveau, $cible]) {
+            $chaine = Affectation::chaine($niveau, $cible);
+
+            $existe = Affectation::where('user_id', $this->agent_id)
+                ->where('annee_academique', $this->annee)
+                ->where('niveau', $chaine['niveau'])
+                ->where('departement_id', $chaine['departement_id'])
+                ->where('filiere_id', $chaine['filiere_id'])
+                ->where('specialite_id', $chaine['specialite_id'])
+                ->where('ue_id', $chaine['ue_id'])
+                ->where('cour_id', $chaine['cour_id'])
+                ->exists();
+
+            if ($existe) {
+                $deja++;
+
+                continue;
+            }
+
+            Affectation::create($chaine + [
+                'user_id' => $this->agent_id,
+                'annee_academique' => $this->annee,
+                'fonction' => $this->fonction ?: null,
+            ]);
+            $posees++;
+        }
+
+        if ($posees === 0) {
+            $this->formErrors['general'] = $deja === 1
+                ? 'Cet agent a déjà cette charge pour '.$this->annee.'.'
+                : 'Cet agent a déjà ces '.$deja.' charges pour '.$this->annee.'.';
 
             return;
         }
 
-        Affectation::create($chaine + [
-            'user_id' => $this->agent_id,
-            'annee_academique' => $this->annee,
-            'fonction' => $this->fonction ?: null,
-        ]);
-
         $this->showAffecterModal = false;
-        $this->notifier('Affectation enregistrée.');
+        $this->notifier($posees === 1
+            ? 'Affectation enregistrée.'
+            : $posees.' charges enregistrées.'.($deja > 0 ? ' '.$deja.' étaient déjà posées.' : ''));
     }
 
     public function functionShowRetirerModal(int $id): void
@@ -351,14 +384,55 @@ new class extends Component {
                                     @endforeach
                                 </select>
                             </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Unité d'enseignement</label>
+                                <select wire:model.live="ue_id" @disabled(! $specialite_id)
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                                    <option value="">{{ $specialite_id ? 'Toute la spécialité' : '—' }}</option>
+                                    @foreach ($ues as $ue)
+                                        <option value="{{ $ue->id }}">{{ $ue->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
 
+                        {{-- Les matieres : on en confie souvent plusieurs d'un coup. --}}
+                        @if ($specialite_id)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">
+                                    Matières <span class="text-gray-400">(une ou plusieurs)</span>
+                                </label>
+                                @if ($matieres->isEmpty())
+                                    <p class="mt-1 text-sm text-amber-700">Aucune matière à ce niveau.</p>
+                                @else
+                                    <div class="mt-2 max-h-44 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+                                        @foreach ($matieres as $matiere)
+                                            <label class="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                                <input type="checkbox" wire:model.live="matieres_choisies" value="{{ $matiere->id }}"
+                                                       class="w-4 h-4 rounded border border-gray-400 text-indigo-600 focus:ring-indigo-500">
+                                                <span>{{ $matiere->name }}@if ($matiere->code) <span class="text-gray-400">({{ $matiere->code }})</span>@endif</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">
+                                        Chaque matière cochée devient une charge distincte. Sans rien cocher,
+                                        la charge s'arrête au niveau choisi ci-dessus.
+                                    </p>
+                                @endif
+                            </div>
+                        @endif
+
                         <p class="text-xs text-gray-500">
-                            On s'arrête où l'on veut : s'arrêter au département confie tout le département,
-                            s'arrêter à la filière confie toutes ses spécialités.
-                            @if ($niveauRetenu = $this->niveauCascade())
+                            On s'arrête où l'on veut : au département, à la filière, à la spécialité,
+                            à l'UE — ou l'on coche les matières confiées.
+                            @if ($matieres_choisies)
                                 <span class="block mt-1 font-medium text-indigo-700">
-                                    Charge retenue : {{ ['departement' => 'le département', 'filiere' => 'la filière', 'specialite' => 'la spécialité'][$niveauRetenu] }}.
+                                    Charge retenue : {{ count($matieres_choisies) }} matière(s).
+                                </span>
+                            @elseif ($niveauRetenu = $this->niveauCascade())
+                                <span class="block mt-1 font-medium text-indigo-700">
+                                    Charge retenue : {{ ['departement' => 'tout le département', 'filiere' => 'toute la filière', 'specialite' => 'toute la spécialité', 'ue' => 'toute l’UE', 'cours' => 'la matière'][$niveauRetenu] }}.
                                 </span>
                             @endif
                         </p>
@@ -437,6 +511,8 @@ new class extends Component {
                                                         'bg-violet-100 text-violet-800' => $affectation->niveau === 'departement',
                                                         'bg-blue-100 text-blue-800' => $affectation->niveau === 'filiere',
                                                         'bg-emerald-100 text-emerald-800' => $affectation->niveau === 'specialite',
+                                                        'bg-sky-100 text-sky-800' => $affectation->niveau === 'ue',
+                                                        'bg-amber-100 text-amber-800' => $affectation->niveau === 'cours',
                                                     ])">
                                                     <span title="{{ $affectation->chemin() }}">
                                                         {{ $affectation->intitule() }}@if ($affectation->fonction) · {{ $affectation->fonction }}@endif
