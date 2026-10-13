@@ -114,8 +114,7 @@ new class extends Component {
             ->where('specialite_id', $emploi->specialite_id)
             ->pluck('user_id')->unique();
 
-        $personnel = User::whereNotIn('role', ['student', 'etudiant'])
-            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'failed'))
+        $personnel = User::personnelDuPortail()
             ->orderBy('name')->orderBy('lastname')
             ->get(['id', 'name', 'lastname', 'matricule']);
 

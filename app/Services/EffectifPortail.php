@@ -179,6 +179,9 @@ class EffectifPortail
             'entite' => $agent['entite'] ?? null,
             'sexe' => in_array($agent['sexe'] ?? null, ['M', 'F'], true) ? $agent['sexe'] : null,
             'status' => 'Success',
+            // Le portail distingue ses employes de ses comptes techniques :
+            // un administrateur du portail entre ici sans etre du personnel.
+            'dans_le_personnel' => (bool) ($agent['dans_le_personnel'] ?? true),
             // Le portail decide qui entre : compte en attente de validation ou
             // suspendu chez lui, pas d'entree ici.
             'peut_se_connecter' => (bool) ($agent['peut_se_connecter'] ?? false),

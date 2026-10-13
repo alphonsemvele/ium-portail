@@ -132,9 +132,7 @@ class DemandeDocument extends Model
      */
     public function concernes(): Collection
     {
-        $personnel = User::query()
-            ->whereNotIn('role', ['student', 'etudiant'])
-            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'failed'));
+        $personnel = User::personnelDuPortail();
 
         if ($this->cible_type !== 'tous') {
             $colonne = $this->cible_type.'_id';
@@ -152,7 +150,7 @@ class DemandeDocument extends Model
     public function concerne(User $user): bool
     {
         if ($this->cible_type === 'tous') {
-            return ! in_array($user->role, ['student', 'etudiant'], true);
+            return User::personnelDuPortail()->whereKey($user->id)->exists();
         }
 
         return Affectation::where('annee_academique', $this->annee_academique)

@@ -39,6 +39,16 @@ new class extends Component {
     public $notificationMessage = '';
     public $notificationType = '';
 
+    /** Montrer les anciens comptes locaux plutot que le personnel du portail. */
+    public bool $comptesLocaux = false;
+
+    public int $nombreComptesLocaux = 0;
+
+    public function updatedComptesLocaux(): void
+    {
+        $this->chargerUsers();
+    }
+
     public function mount()
     {
         $this->cycles     = Cycle::all();
@@ -47,12 +57,25 @@ new class extends Component {
         $this->chargerUsers();
     }
 
+    /**
+     * Le personnel de l'institut vient du portail La Majestueuse : y figure
+     * qui porte la tuile IUM chez lui — qu'il l'ait choisie a son inscription
+     * ou qu'on la lui ait attribuee — et qui compte dans ses effectifs. Un
+     * administrateur du portail qui n'est pas un employe n'apparait pas.
+     *
+     * Les comptes d'avant le raccordement restent en base : ils portent les
+     * notes et les bulletins d'hier. On les met de cote, et on peut toujours
+     * les afficher le temps de la reprise.
+     */
     private function chargerUsers(): void
     {
         $this->users = User::with(['cycle', 'filiere', 'specialite', 'profilSalaire.categorie'])
-            ->where('role', '!=', 'student')
-            ->where('status', '!=', 'failed')
+            ->when(! $this->comptesLocaux, fn ($q) => $q->personnelDuPortail())
+            ->when($this->comptesLocaux, fn ($q) => $q->comptesLocaux())
+            ->orderBy('name')->orderBy('lastname')
             ->get();
+
+        $this->nombreComptesLocaux = User::comptesLocaux()->count();
     }
 
     public function voirBulletin(int $id): void
@@ -265,7 +288,10 @@ new class extends Component {
             'agent_scolarite' => 'Agent de Scolarité',
             'coord_droit'     => 'Coordonnateur Droit',
         ];
-        return $postes[$poste] ?? 'N/A';
+        // Les codes ci-dessus viennent de l'ancienne saisie locale. Le portail,
+        // lui, envoie un intitule deja lisible (« Enseignant », « Chef de
+        // departement ») : on le garde tel quel plutot que de le perdre.
+        return $postes[$poste] ?? (filled($poste) ? (string) $poste : 'N/A');
     }
 
     public function getSectionLabel($section_id): string
@@ -318,19 +344,44 @@ new class extends Component {
             <div class="flex items-center gap-4">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">Personnel</h1>
-                    <p class="text-gray-500">Responsables, enseignants et staff</p>
+                    <p class="text-gray-500">
+                        {{ $comptesLocaux
+                            ? 'Anciens comptes, d’avant le raccordement au portail'
+                            : 'Les employés de l’institut, déclarés au portail La Majestueuse' }}
+                    </p>
                 </div>
             </div>
-            <button wire:click="functionShowAddModal"
-                class="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl shadow"
-                style="background:#4f46e5;">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                Ajouter un personnel
-            </button>
+            <a href="{{ rtrim(config('portail.url'), '/') }}/admin/users" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl shadow"
+               style="background:#4f46e5;">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                Gérer les comptes au portail
+            </a>
         </div>
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {{-- D'ou vient cette liste, et ce qu'on a mis de côté. --}}
+        <div class="mb-6 p-4 bg-sky-50 border-l-4 border-sky-400 text-sky-900 rounded-lg text-sm">
+            @if ($comptesLocaux)
+                Ces comptes datent d'avant le raccordement au portail. Ils sont
+                <strong>mis de côté</strong> : conservés parce qu'ils portent les notes et les
+                bulletins d'hier, mais ils ne font plus partie du personnel.
+            @else
+                Le personnel est celui que déclare le <strong>portail La Majestueuse</strong> : les agents
+                rattachés à IUM, qu'ils l'aient choisi à leur inscription ou qu'on le leur ait
+                attribué. Les administrateurs du portail qui ne sont pas des employés n'y figurent pas.
+                Rien ne se crée ni ne se supprime ici.
+            @endif
+            @if ($nombreComptesLocaux > 0)
+                <button wire:click="$toggle('comptesLocaux')" class="block mt-2 font-medium underline">
+                    {{ $comptesLocaux
+                        ? 'Revenir au personnel du portail'
+                        : $nombreComptesLocaux.' ancien(s) compte(s) local(aux) mis de côté — les afficher' }}
+                </button>
+            @endif
+        </div>
 
         {{-- Toast --}}
         @if ($showNotification)
@@ -385,7 +436,7 @@ new class extends Component {
                                     </div>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 font-semibold text-gray-900">{{ $user->name }}</td>
+                            <td class="px-4 py-3 font-semibold text-gray-900">{{ trim($user->name.' '.$user->lastname) }}</td>
                             <td class="px-4 py-3">
                                 <span class="text-xs font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700">{{ $this->getRoleLabel($user->role) }}</span>
                             </td>
@@ -786,7 +837,7 @@ new class extends Component {
                             </div>
                         @endif
                         @foreach ([
-                            ['Nom',        $userElement->name ?? 'N/A'],
+                            ['Nom',        trim(($userElement->name ?? '').' '.($userElement->lastname ?? '')) ?: 'N/A'],
                             ['Poste',      $this->getPosteLabel($userElement->poste)],
                             ['Section',    $this->getSectionLabel($userElement->section_id)],
                             ['Rôle',       $this->getRoleLabel($userElement->role ?? '')],
