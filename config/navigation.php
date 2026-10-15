@@ -30,6 +30,7 @@ return [
             ['titre' => 'CC & examens', 'lien' => '/admin/notes', 'icone' => 'notes'],
             ['titre' => 'Emplois du temps', 'lien' => '/admin/emploi-du-temps', 'icone' => 'calendrier'],
             ['titre' => 'Documents demandés', 'lien' => '/admin/document', 'icone' => 'document'],
+            ['titre' => 'Syllabus', 'lien' => '/admin/syllabus', 'icone' => 'document'],
             ['titre' => 'Rattrapage', 'lien' => '/admin/rattrapage', 'icone' => 'reinscrire'],
             ['titre' => 'Examens', 'lien' => '/admin/examen', 'icone' => 'evaluation'],
             ['titre' => 'Barbillard', 'lien' => '/admin/barbillard', 'icone' => 'barbillard'],
@@ -117,6 +118,15 @@ return [
             ['titre' => 'Unités d’enseignement', 'lien' => '/specialite/ue', 'icone' => 'domaines'],
             ['titre' => 'Examens & notes', 'lien' => '/specialite/examens', 'icone' => 'notes'],
             ['titre' => 'Rapports', 'lien' => '/specialite/rapport', 'icone' => 'document'],
+        ]],
+        /*
+         * Syllabus : « Mes syllabus » n'apparait qu'a ceux qui enseignent, et
+         * la revue du departement qu'a ses responsables — les prefixes sont
+         * accordes dans User::allowedPrefixes().
+         */
+        ['groupe' => 'Syllabus', 'liens' => [
+            ['titre' => 'Mes syllabus', 'lien' => '/syllabus', 'icone' => 'document'],
+            ['titre' => 'Syllabus du département', 'lien' => '/syllabus/departement', 'icone' => 'valider'],
         ]],
         ['groupe' => 'Moi', 'liens' => [
             ['titre' => 'Mon emploi du temps', 'lien' => '/personnel/emploi-du-temps', 'icone' => 'calendrier'],

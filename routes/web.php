@@ -10,6 +10,7 @@ use App\Http\Controllers\BulletinController;
 use App\Http\Controllers\DocumentDemandeController;
 use App\Http\Controllers\EmploiDuTempsController;
 use App\Http\Controllers\ReleveController;
+use App\Http\Controllers\SyllabusController;
 
 // Relevé de notes de l'étudiant connecté (PDF)
 Route::get('/mon-releve/pdf', [ReleveController::class, 'telecharger'])
@@ -20,6 +21,16 @@ Route::get('/mon-releve/pdf', [ReleveController::class, 'telecharger'])
 Route::get('/admin/emploi-du-temps/{emploi}/pdf', [EmploiDuTempsController::class, 'pdf'])
     ->middleware(['auth', 'verified'])
     ->name('emploi-du-temps.pdf');
+
+// Syllabus : sortie papier au format officiel, et piece jointe de
+// l'enseignant — rangee hors du dossier public, elle ne sort que par ici.
+Route::get('/syllabus/{syllabus}/pdf', [SyllabusController::class, 'pdf'])
+    ->middleware(['auth', 'verified'])
+    ->name('syllabus.pdf');
+
+Route::get('/syllabus/{syllabus}/fichier', [SyllabusController::class, 'fichier'])
+    ->middleware(['auth', 'verified'])
+    ->name('syllabus.fichier');
 
 // Pieces deposees pour une demande de document : rangees hors du dossier
 // public, elles ne sortent que par ici.

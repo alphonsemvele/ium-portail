@@ -253,6 +253,56 @@ class User extends Authenticatable
         return $this->affectations()->deLAnnee($annee)->exists();
     }
 
+    /**
+     * Les matieres que l'agent enseigne cette annee : celles qui lui sont
+     * affectees, et celles dont il reste le responsable au catalogue — les
+     * deux existent, et un syllabus est attendu pour les unes comme pour les
+     * autres.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Cour>
+     */
+    public function matieresEnseignees(?string $annee = null): \Illuminate\Support\Collection
+    {
+        $parAffectation = $this->affectations()
+            ->deLAnnee($annee)
+            ->where('niveau', 'cours')
+            ->pluck('cour_id')
+            ->filter();
+
+        $parCatalogue = \App\Models\Cour::where('responsable_id', $this->id)
+            ->where('status', '!=', 'failed')
+            ->pluck('id');
+
+        $identifiants = $parAffectation->merge($parCatalogue)->unique()->values();
+
+        if ($identifiants->isEmpty()) {
+            return collect();
+        }
+
+        return \App\Models\Cour::with(['ue.specialite.filiere.departement', 'specialite', 'cycle'])
+            ->whereIn('id', $identifiants)
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Les departements dont l'agent est le responsable : c'est a ce titre
+     * qu'il recoit les syllabus et qu'il les valide.
+     *
+     * @return array<int, int>
+     */
+    public function departementsDirigees(): array
+    {
+        return \App\Models\Departement::where('responsable_id', $this->id)
+            ->pluck('id')
+            ->all();
+    }
+
+    public function estChefDeDepartement(): bool
+    {
+        return $this->departementsDirigees() !== [];
+    }
+
     /* ===================================================================
      |  Rôles & accès aux espaces
      * =================================================================== */
@@ -389,6 +439,18 @@ class User extends Authenticatable
         }
         if ($this->hasSpecialiteModule()) {
             $prefixes = array_merge($prefixes, ['specialite', 'specialite/*']);
+        }
+
+        /*
+         * « Mes syllabus » est ouvert a tout le personnel : les enseignants de
+         * l'institut ne portent pas tous le role « enseignant », et un agent
+         * sans matiere n'y trouve qu'un ecran vide. La revue du departement,
+         * elle, reste a ses responsables.
+         */
+        $prefixes[] = 'syllabus';
+
+        if ($this->estChefDeDepartement()) {
+            $prefixes = array_merge($prefixes, ['syllabus/departement']);
         }
 
         return array_values(array_unique($prefixes));

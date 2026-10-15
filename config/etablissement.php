@@ -20,5 +20,27 @@ return [
      */
     'annee_academique' => env('ETABLISSEMENT_ANNEE'),
 
+    /*
+     * En-tete bilingue des documents officiels (syllabus, attestations) :
+     * la Republique a gauche en francais, a droite en anglais, et entre les
+     * deux l'agrement de l'institut. Chaque etablissement du groupe a le
+     * sien : il passe par l'environnement.
+     */
+    'entete' => [
+        'pays_fr' => env('ETABLISSEMENT_PAYS_FR', 'RÉPUBLIQUE DU CAMEROUN'),
+        'devise_pays_fr' => env('ETABLISSEMENT_DEVISE_PAYS_FR', 'Paix – Travail – Patrie'),
+        'nom_fr' => env('ETABLISSEMENT_NOM_FR', 'Institut Universitaire La Majestueuse Ndazoa'),
+        'agrement_fr' => env('ETABLISSEMENT_AGREMENT_FR',
+            'Lettre N° 26-02352/L/MINESUP/DDES/ESUP/SDA/ANAP du 16 mars 2026'),
+        'devise_fr' => env('ETABLISSEMENT_DEVISE_FR', 'Devise : Développer les talents, réaliser les rêves'),
+
+        'pays_en' => env('ETABLISSEMENT_PAYS_EN', 'REPUBLIC OF CAMEROON'),
+        'devise_pays_en' => env('ETABLISSEMENT_DEVISE_PAYS_EN', 'Peace – Work – Fatherland'),
+        'nom_en' => env('ETABLISSEMENT_NOM_EN', 'La Majestueuse Ndazoa University Institute'),
+        'agrement_en' => env('ETABLISSEMENT_AGREMENT_EN',
+            'Letter N° 26-02352/L/MINESUP/DDES/ESUP/SDA/ANAP of 16th March 2026'),
+        'devise_en' => env('ETABLISSEMENT_DEVISE_EN', 'Motto: Nurturing talents, realising dreams'),
+    ],
+
     'modules' => [],
 ];
