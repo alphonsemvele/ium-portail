@@ -21,6 +21,14 @@ return [
     'annee_academique' => env('ETABLISSEMENT_ANNEE'),
 
     /*
+     * Le ministere de tutelle, tel qu'il s'imprime en tete des documents
+     * officiels. L'IUM releve du MINESUP ; l'IFPM et le GSBM ont le leur.
+     */
+    'ministere_fr' => env('ETABLISSEMENT_MINISTERE_FR', "MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR"),
+    'ministere_sigle' => env('ETABLISSEMENT_MINISTERE_SIGLE', 'MINESUP'),
+    'ministere_en' => env('ETABLISSEMENT_MINISTERE_EN', 'MINISTRY OF HIGHER EDUCATION'),
+
+    /*
      * En-tete bilingue des documents officiels (syllabus, attestations) :
      * la Republique a gauche en francais, a droite en anglais, et entre les
      * deux l'agrement de l'institut. Chaque etablissement du groupe a le

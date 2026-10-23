@@ -7,16 +7,24 @@
 body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1a1a; padding: 26px 34px; }
 .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .header-table td { vertical-align: middle; }
-.logo { height: 62px; }
+.logo { height: 58px; margin-bottom: 3px; }
+.tutelle { text-align: center; vertical-align: top; }
+.etoiles { font-size: 7px; color: #888; letter-spacing: 1px; margin: 1px 0; }
+.ministere { font-size: 7.6px; font-weight: bold; line-height: 1.25; }
+.sigle-ministere { font-size: 7.6px; font-weight: bold; }
+.contacts { font-size: 7.2px; color: #555; margin-top: 3px; line-height: 1.3; }
+.annee { text-align: center; font-size: 9.5px; margin-top: 3px; }
 .school-fr { font-size: 13px; font-weight: bold; }
 .school-en { font-size: 10px; color: #444; margin-top: 2px; }
-.doc-title { font-size: 15px; font-weight: bold; margin-top: 8px; letter-spacing: .5px; }
+.doc-title { font-size: 15px; font-weight: bold; margin-top: 6px; letter-spacing: .5px; text-align: center; }
 .republic { font-size: 9px; font-weight: bold; text-align: center; }
 .motto { font-size: 8px; color: #777; font-style: italic; text-align: center; margin-top: 2px; }
 .sep { border: none; border-top: 2px solid #1a1a1a; margin: 8px 0; }
 .info-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
 .info-table td { padding: 3px 6px; font-size: 10px; }
-.info-label { font-weight: bold; width: 20%; }
+.info-label { font-weight: bold; width: 20%; line-height: 1.2; }
+.info-label .en { display: block; font-weight: normal; font-style: italic; font-size: 7.6px; color: #666; }
+.en-th { display: block; font-weight: normal; font-style: italic; font-size: 7px; color: #d8d8d8; }
 .info-value { border-bottom: 1px solid #bbb; }
 .notes-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
 .notes-table th { background: #1a1a1a; color: white; padding: 4px 6px; font-size: 8.5px; text-align: center; }
@@ -42,47 +50,83 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 </head>
 <body>
 
+@php
+    use App\Support\AnneeAcademique;
+
+    $etab = config('etablissement');
+    $logo = public_path($etab['logo'] ?? 'images/logo.png');
+    $entete = $etab['entete'] ?? [];
+
+    // Le releve porte l'annee de ses sessions ; a defaut, celle en cours.
+    $anneeReleve = $globalStats['annee'] ?: AnneeAcademique::courante();
+    $niveau = $globalStats['niveau'] ?? $user->cycle?->name;
+
+    $contacts = collect([
+        $etab['adresse'] ?? null,
+        $etab['telephone'] ?? null,
+        $etab['email'] ?: ($etab['domaine'] ?? null),
+    ])->filter()->implode(' · ');
+@endphp
+
 <table class="header-table">
     <tr>
-        <td width="20%" style="text-align:center;"><img src="https://ium-ndazoa.com/images/logo.png" class="logo" alt="IUM"></td>
-        <td width="60%" style="text-align:center;">
-            <div class="school-fr">IUM NDAZOA</div>
-            <div class="school-en">Institut Universitaire La Majestueuse</div>
-            <div class="doc-title">RELEVÉ DE NOTES / TRANSCRIPT</div>
-        </td>
-        <td width="20%">
-            <div class="republic">REPUBLIQUE DU CAMEROUN</div>
+        <td width="30%" class="tutelle">
+            <div class="republic">RÉPUBLIQUE DU CAMEROUN</div>
             <div class="motto">Paix — Travail — Patrie</div>
-            <div class="republic" style="margin-top:5px;">REPUBLIC OF CAMEROON</div>
+            <div class="etoiles">**********</div>
+            <div class="ministere">{{ $entete['ministere_fr'] ?? config('etablissement.ministere_fr') }}</div>
+            <div class="sigle-ministere">({{ config('etablissement.ministere_sigle') }})</div>
+        </td>
+
+        <td width="40%" style="text-align:center;">
+            @if (is_file($logo))
+                <img src="{{ $logo }}" class="logo" alt="">
+            @endif
+            <div class="school-fr">{{ $etab['sigle'] }}</div>
+            <div class="school-en">{{ $etab['nom'] }}</div>
+            @if ($contacts)
+                <div class="contacts">{{ $contacts }}</div>
+            @endif
+        </td>
+
+        <td width="30%" class="tutelle">
+            <div class="republic">REPUBLIC OF CAMEROON</div>
             <div class="motto">Peace — Work — Fatherland</div>
+            <div class="etoiles">**********</div>
+            <div class="ministere">{{ config('etablissement.ministere_en') }}</div>
         </td>
     </tr>
 </table>
+
+<div class="doc-title">RELEVÉ DE NOTES / TRANSCRIPT</div>
+<div class="annee">Année académique / Academic year : <strong>{{ $anneeReleve }}</strong></div>
 
 <hr class="sep">
 
 <table class="info-table">
     <tr>
-        <td class="info-label">Matricule :</td>
-        <td class="info-value">{{ $user->matricule ?? '—' }}</td>
-        <td class="info-label">Nom &amp; Prénom :</td>
+        <td class="info-label">Nom &amp; Prénom<span class="en">Surname and name</span></td>
         <td class="info-value"><strong>{{ strtoupper($user->name ?? '') }} {{ $user->lastname ?? '' }}</strong></td>
+        <td class="info-label">Matricule<span class="en">Registration n°</span></td>
+        <td class="info-value">{{ $user->matricule ?: '—' }}</td>
     </tr>
     <tr>
-        <td class="info-label">Né(e) le :</td>
-        <td class="info-value">{{ optional($user->date_naissance)->format('d/m/Y') ?? '—' }}</td>
-        <td class="info-label">À :</td>
-        <td class="info-value">{{ $user->lieu_naissance ?? '—' }}</td>
+        <td class="info-label">Né(e) le<span class="en">Born on</span></td>
+        <td class="info-value">{{ optional($user->date_naissance)->format('d/m/Y') ?: '—' }}</td>
+        <td class="info-label">À<span class="en">At</span></td>
+        <td class="info-value">{{ $user->lieu_naissance ?: '—' }}</td>
     </tr>
     <tr>
-        <td class="info-label">Sexe :</td>
-        <td class="info-value">{{ $user->sexe === 'M' ? 'Masculin' : ($user->sexe === 'F' ? 'Féminin' : '—') }}</td>
-        <td class="info-label">Filière :</td>
-        <td class="info-value">{{ $filiere ?? '—' }}</td>
+        <td class="info-label">Année<span class="en">Year</span></td>
+        <td class="info-value">{{ $anneeReleve }}</td>
+        <td class="info-label">Filière<span class="en">Discipline</span></td>
+        <td class="info-value">{{ $user->filiere?->name ?: ($filiere ?: '—') }}</td>
     </tr>
     <tr>
-        <td class="info-label">Cycle :</td>
-        <td class="info-value" colspan="3">{{ $user->cycle?->name ?? '—' }}</td>
+        <td class="info-label">Niveau<span class="en">Level</span></td>
+        <td class="info-value">{{ $niveau ?: '—' }}</td>
+        <td class="info-label">Spécialité<span class="en">Speciality</span></td>
+        <td class="info-value">{{ $user->specialite?->name ?: '—' }}</td>
     </tr>
 </table>
 
@@ -92,9 +136,9 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
             <th class="l" style="width:10%;">Codes</th>
             <th class="l" style="width:35%;">Intitulés</th>
             <th style="width:9%;">Crédits</th>
-            <th style="width:10%;">Notes/20</th>
-            <th style="width:11%;">Crédits validés</th>
-            <th style="width:15%;">Session de validation</th>
+            <th style="width:10%;">MGP<span class="en-th">/20</span></th>
+            <th style="width:12%;">Décision<span class="en-th">crédits validés</span></th>
+            <th style="width:16%;">Année académique<span class="en-th">et semestre</span></th>
             <th style="width:10%;">Grade</th>
         </tr>
     </thead>
@@ -107,7 +151,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
                 <td class="l">{{ $ue['name'] }}</td>
                 <td>{{ $ue['credits'] }}</td>
                 <td>{{ $ue['moy'] !== null ? number_format($ue['moy'], 2) : '—' }}</td>
-                <td>{{ $ue['credits_valides'] }}</td>
+                <td>{{ $ue['decision'] }} — {{ $ue['credits_valides'] }}</td>
                 <td>{{ $ue['session'] }}</td>
                 <td>{{ $ue['cote'] }}</td>
             </tr>
@@ -132,8 +176,8 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 <div class="bareme">NB : 0&lt;=F&lt;6 ; 6&lt;=D&lt;8 ; 8&lt;=D+&lt;9 ; 9&lt;=C-&lt;10 ; 10&lt;=C&lt;11 ; 11&lt;=C+&lt;12 ; 12&lt;=B-&lt;13 ; 13&lt;=B&lt;14 ; 14&lt;=B+&lt;15 ; 15&lt;=A-&lt;16 ; 16&lt;=A&lt;20</div>
 
 <table class="recap">
-    <tr><td class="k">Moyenne générale</td><td class="v">{{ $globalStats['moy'] !== null ? number_format($globalStats['moy'], 2) . ' / 20' : '—' }}</td></tr>
-    <tr><td class="k">Crédits validés (reste à valider)</td><td class="v">{{ $globalStats['valides'] }} / {{ $globalStats['credits'] }} ({{ $globalStats['reste'] }})</td></tr>
+    <tr><td class="k">Moyenne générale pondérée (MGP)</td><td class="v">{{ $globalStats['moy'] !== null ? number_format($globalStats['moy'], 2) . ' / 20' : '—' }}</td></tr>
+    <tr><td class="k">Crédits capitalisés (reste à valider)</td><td class="v">{{ $globalStats['valides'] }} / {{ $globalStats['credits'] }} ({{ $globalStats['reste'] }})</td></tr>
     <tr><td class="k">Nombre de matières notées</td><td class="v">{{ $globalStats['matieres'] }}</td></tr>
 </table>
 
@@ -145,7 +189,9 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 </table>
 
 <div class="footer">
-    IUM NDAZOA — Institut Universitaire La Majestueuse — Ndazoa, route Yaoundé-Douala &nbsp;|&nbsp; Document généré le {{ now()->format('d/m/Y') }}
+    {{ config('etablissement.sigle') }} — {{ config('etablissement.nom') }} — {{ config('etablissement.adresse') }}
+    &nbsp;|&nbsp; Année académique {{ $anneeReleve }}
+    &nbsp;|&nbsp; Document généré le {{ now()->format('d/m/Y') }}
 </div>
 
 </body>

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Note;
 use App\Models\User;
+use App\Support\AnneeAcademique;
 
 class ReleveService
 {
@@ -37,7 +38,14 @@ class ReleveService
             $sk = $note->examen->id ?? 0;
             $st = $note->examen->titre ?? 'Session non définie';
             if (!isset($sessions[$sk])) {
-                $sessions[$sk] = ['titre' => $st, 'ues' => []];
+                $sessions[$sk] = [
+                    'titre' => $st,
+                    // Le titre de la session porte le niveau et le semestre :
+                    // « M1-S8 » se lit « Master 1, semestre 8 ».
+                    'niveau' => self::niveau($st),
+                    'semestre' => self::semestre($st),
+                    'ues' => [],
+                ];
             }
 
             $uk = $cours->ue->id ?? 0;
@@ -48,7 +56,7 @@ class ReleveService
             }
 
             $sessions[$sk]['ues'][$uk]['lignes'][] = [
-                'code' => $cours->code ?? '',
+                'code' => self::codeOfficiel($cours->code),
                 'nom' => $cours->name,
                 'credit' => $credit,
                 'moy' => $moy,
@@ -81,7 +89,7 @@ class ReleveService
 
                 foreach ($ue['lignes'] as &$l) {
                     $l['credits_valides'] = $ueValide ? $l['credit'] : 0;
-                    $l['session'] = $l['session_date'] ? mb_strtoupper($l['session_date']->translatedFormat('F Y')) : '—';
+                    $l['session'] = self::periode($l['session_date'], $session['semestre']);
                     unset($l['session_date']);
                 }
                 unset($l);
@@ -90,7 +98,11 @@ class ReleveService
                 $ue['moy'] = $ueMoy;
                 $ue['credits_valides'] = $ueCreditsValides;
                 $ue['cote'] = self::cote($ueMoy);
-                $ue['session'] = $ueDate ? mb_strtoupper($ueDate->translatedFormat('F Y')) : '—';
+                $ue['session'] = self::periode($ueDate, $session['semestre']);
+                // La decision de l'UE, telle qu'elle se lit sur un releve LMD.
+                $ue['decision'] = $ueMoy === null ? '—' : ($ueValide ? 'V' : 'NV');
+
+                $ue['annee'] = AnneeAcademique::pour($ueDate);
 
                 $sessionCredits += $ueCredits;
                 $sessionValides += $ueCreditsValides;
@@ -103,11 +115,17 @@ class ReleveService
 
             $session['credits'] = $sessionCredits;
             $session['valides'] = $sessionValides;
+            $session['annee'] = collect($session['ues'])->pluck('annee')->filter()->first();
         }
         unset($session);
 
+        $annees = collect($sessions)->pluck('annee')->filter()->unique()->values();
+
         $globalStats = [
             'moy' => $totCredits ? round($sumPonderee / $totCredits, 2) : null,
+            // Ce que l'en-tete annonce : l'annee et le niveau du releve.
+            'annee' => $annees->count() === 1 ? $annees->first() : $annees->implode(' — '),
+            'niveau' => collect($sessions)->pluck('niveau')->filter()->last(),
             'credits' => $totCredits,
             'valides' => $totValides,
             'reste' => max($totCredits - $totValides, 0),
@@ -115,6 +133,50 @@ class ReleveService
         ];
 
         return [$sessions, $globalStats];
+    }
+
+    /**
+     * Le code imprimé sur le relevé.
+     *
+     * Les matières créées sans code en reçoivent un, tiré au sort
+     * (« C-IRHJKD ») : il n'a aucune valeur officielle et n'a rien à faire
+     * sur un document signé. Seuls les codes du programme validé sortent.
+     */
+    private static function codeOfficiel(?string $code): string
+    {
+        $code = trim((string) $code);
+
+        return preg_match('/^C-[A-Za-z0-9]{5,8}$/', $code) === 1 ? '' : $code;
+    }
+
+    /** « Master 1 » à partir d'un titre de session « M1-S8 ». */
+    private static function niveau(string $titre): ?string
+    {
+        if (preg_match('/^\s*([A-Za-z]+)\s*(\d)/', $titre, $trouve) !== 1) {
+            return null;
+        }
+
+        $cycles = ['L' => 'Licence', 'M' => 'Master', 'D' => 'Doctorat', 'B' => 'BTS', 'P' => 'Prépa'];
+        $lettre = mb_strtoupper(mb_substr($trouve[1], 0, 1));
+
+        return ($cycles[$lettre] ?? mb_strtoupper($trouve[1])).' '.$trouve[2];
+    }
+
+    /** « S8 » à partir d'un titre de session « M1-S8 ». */
+    private static function semestre(string $titre): ?string
+    {
+        return preg_match('/S\s*(\d+)/i', $titre, $trouve) === 1 ? 'S'.$trouve[1] : null;
+    }
+
+    /**
+     * Ce qu'annonce la colonne de droite : l'année académique et le semestre,
+     * et non plus le mois de la session d'examen.
+     */
+    private static function periode(?\DateTimeInterface $date, ?string $semestre): string
+    {
+        $annee = AnneeAcademique::pour($date);
+
+        return trim(collect([$annee, $semestre])->filter()->implode(' · ')) ?: '—';
     }
 
     /**

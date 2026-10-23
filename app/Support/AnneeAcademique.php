@@ -30,6 +30,22 @@ class AnneeAcademique
     }
 
     /**
+     * L'annee academique d'une date : celle d'un examen de juillet 2026 est
+     * 2025/2026, celle d'un examen d'octobre 2026 est 2026/2027.
+     */
+    public static function pour(?\DateTimeInterface $date): ?string
+    {
+        if ($date === null) {
+            return null;
+        }
+
+        $moment = CarbonImmutable::instance($date);
+        $debut = $moment->month >= self::RENTREE ? $moment->year : $moment->year - 1;
+
+        return $debut.'/'.($debut + 1);
+    }
+
+    /**
      * Les annees proposees dans les listes deroulantes : la courante, les deux
      * precedentes et la suivante — on prepare la rentree avant qu'elle arrive.
      *
