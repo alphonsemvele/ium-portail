@@ -21,6 +21,20 @@ return [
     'annee_academique' => env('ETABLISSEMENT_ANNEE'),
 
     /*
+     * L'ecole qui delivre le document, sous le nom de l'institut, et la
+     * boite postale : l'en-tete officiel les porte tous les deux.
+     */
+    'ecole_fr' => env('ETABLISSEMENT_ECOLE_FR', 'Institut Supérieur des Sciences Biomédicales'),
+    'ecole_en' => env('ETABLISSEMENT_ECOLE_EN', 'Higher Institute of Biomedical Sciences'),
+    'bp' => env('ETABLISSEMENT_BP', ''),
+
+    /*
+     * Le total de credits d'une annee academique : le releve annonce les
+     * credits acquis sur ce total.
+     */
+    'credits_annee' => (int) env('ETABLISSEMENT_CREDITS_ANNEE', 60),
+
+    /*
      * Le ministere de tutelle, tel qu'il s'imprime en tete des documents
      * officiels. L'IUM releve du MINESUP ; l'IFPM et le GSBM ont le leur.
      */

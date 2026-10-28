@@ -12,7 +12,9 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .etoiles { font-size: 7px; color: #888; letter-spacing: 1px; margin: 1px 0; }
 .ministere { font-size: 7.6px; font-weight: bold; line-height: 1.25; }
 .sigle-ministere { font-size: 7.6px; font-weight: bold; }
-.contacts { font-size: 7.2px; color: #555; margin-top: 3px; line-height: 1.3; }
+.institut { font-size: 8px; font-weight: bold; line-height: 1.25; margin-top: 2px; }
+.coordonnees { font-size: 7px; color: #555; margin-top: 2px; line-height: 1.3; }
+.agrement { font-size: 6.6px; color: #666; margin-top: 2px; line-height: 1.25; }
 .annee { text-align: center; font-size: 9.5px; margin-top: 3px; }
 .school-fr { font-size: 13px; font-weight: bold; }
 .school-en { font-size: 10px; color: #444; margin-top: 2px; }
@@ -42,7 +44,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .recap .k { background: #f0f0f0; font-weight: bold; width: 60%; }
 .recap .v { text-align: right; font-weight: bold; }
 .bareme { margin-top: 6px; font-size: 7.5px; color: #555; }
-.footer { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 8px; text-align: center; font-size: 8px; color: #888; }
 .sig { width: 100%; margin-top: 26px; border-collapse: collapse; }
 .sig td { text-align: center; font-size: 9px; width: 50%; }
 .sig-line { border-top: 1px solid #999; margin: 26px 20px 4px; }
@@ -62,38 +63,54 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     $niveau = $globalStats['niveau'] ?? $user->cycle?->name;
 
     $contacts = collect([
+        filled($etab['bp'] ?? null) ? 'BP '.$etab['bp'] : null,
         $etab['adresse'] ?? null,
-        $etab['telephone'] ?? null,
+        filled($etab['telephone'] ?? null)
+            ? 'Tél.'."\u{00A0}".str_replace(' ', "\u{00A0}", $etab['telephone'])
+            : null,
         $etab['email'] ?: ($etab['domaine'] ?? null),
-    ])->filter()->implode(' · ');
+    ])->filter()->implode(' — ');
 @endphp
 
 <table class="header-table">
     <tr>
-        <td width="30%" class="tutelle">
+        <td width="37%" class="tutelle">
             <div class="republic">RÉPUBLIQUE DU CAMEROUN</div>
             <div class="motto">Paix — Travail — Patrie</div>
             <div class="etoiles">**********</div>
-            <div class="ministere">{{ $entete['ministere_fr'] ?? config('etablissement.ministere_fr') }}</div>
+            <div class="ministere">{{ config('etablissement.ministere_fr') }}</div>
             <div class="sigle-ministere">({{ config('etablissement.ministere_sigle') }})</div>
+            <div class="etoiles">**********</div>
+            <div class="institut">{{ $entete['nom_fr'] ?? $etab['nom'] }}</div>
+            @if (filled($etab['ecole_fr'] ?? null))
+                <div class="institut">{{ $etab['ecole_fr'] }}</div>
+            @endif
+            <div class="coordonnees">{{ $contacts }}</div>
+            @if (filled($entete['agrement_fr'] ?? null))
+                <div class="agrement">{{ $entete['agrement_fr'] }}</div>
+            @endif
         </td>
 
-        <td width="40%" style="text-align:center;">
+        <td width="26%" style="text-align:center; vertical-align:top;">
             @if (is_file($logo))
                 <img src="{{ $logo }}" class="logo" alt="">
             @endif
             <div class="school-fr">{{ $etab['sigle'] }}</div>
-            <div class="school-en">{{ $etab['nom'] }}</div>
-            @if ($contacts)
-                <div class="contacts">{{ $contacts }}</div>
-            @endif
         </td>
 
-        <td width="30%" class="tutelle">
+        <td width="37%" class="tutelle">
             <div class="republic">REPUBLIC OF CAMEROON</div>
             <div class="motto">Peace — Work — Fatherland</div>
             <div class="etoiles">**********</div>
             <div class="ministere">{{ config('etablissement.ministere_en') }}</div>
+            <div class="etoiles">**********</div>
+            <div class="institut">{{ $entete['nom_en'] ?? '' }}</div>
+            @if (filled($etab['ecole_en'] ?? null))
+                <div class="institut">{{ $etab['ecole_en'] }}</div>
+            @endif
+            @if (filled($entete['agrement_en'] ?? null))
+                <div class="agrement">{{ $entete['agrement_en'] }}</div>
+            @endif
         </td>
     </tr>
 </table>
@@ -136,8 +153,8 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
             <th class="l" style="width:10%;">Codes</th>
             <th class="l" style="width:35%;">Intitulés</th>
             <th style="width:9%;">Crédits</th>
-            <th style="width:10%;">MGP<span class="en-th">/20</span></th>
-            <th style="width:12%;">Décision<span class="en-th">crédits validés</span></th>
+            <th style="width:10%;">Note<span class="en-th">/20</span></th>
+            <th style="width:12%;">Crédits acquis<span class="en-th">credits earned</span></th>
             <th style="width:16%;">Année académique<span class="en-th">et semestre</span></th>
             <th style="width:10%;">Grade</th>
         </tr>
@@ -151,7 +168,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
                 <td class="l">{{ $ue['name'] }}</td>
                 <td>{{ $ue['credits'] }}</td>
                 <td>{{ $ue['moy'] !== null ? number_format($ue['moy'], 2) : '—' }}</td>
-                <td>{{ $ue['decision'] }} — {{ $ue['credits_valides'] }}</td>
+                <td>{{ $ue['credits_valides'] }}</td>
                 <td>{{ $ue['session'] }}</td>
                 <td>{{ $ue['cote'] }}</td>
             </tr>
@@ -175,24 +192,47 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 
 <div class="bareme">NB : 0&lt;=F&lt;6 ; 6&lt;=D&lt;8 ; 8&lt;=D+&lt;9 ; 9&lt;=C-&lt;10 ; 10&lt;=C&lt;11 ; 11&lt;=C+&lt;12 ; 12&lt;=B-&lt;13 ; 13&lt;=B&lt;14 ; 14&lt;=B+&lt;15 ; 15&lt;=A-&lt;16 ; 16&lt;=A&lt;20</div>
 
+@php
+    // Les credits d'une annee academique, tels que le releve les annonce.
+    $creditsAnnee = (int) config('etablissement.credits_annee', 60);
+
+    $mention = match (true) {
+        $globalStats['moy'] === null => '—',
+        $globalStats['moy'] >= 16 => 'Très bien',
+        $globalStats['moy'] >= 14 => 'Bien',
+        $globalStats['moy'] >= 12 => 'Assez bien',
+        $globalStats['moy'] >= 10 => 'Passable',
+        default => 'Insuffisant',
+    };
+
+    $dette = max($creditsAnnee - $globalStats['valides'], 0);
+@endphp
+
 <table class="recap">
-    <tr><td class="k">Moyenne générale pondérée (MGP)</td><td class="v">{{ $globalStats['moy'] !== null ? number_format($globalStats['moy'], 2) . ' / 20' : '—' }}</td></tr>
-    <tr><td class="k">Crédits capitalisés (reste à valider)</td><td class="v">{{ $globalStats['valides'] }} / {{ $globalStats['credits'] }} ({{ $globalStats['reste'] }})</td></tr>
-    <tr><td class="k">Nombre de matières notées</td><td class="v">{{ $globalStats['matieres'] }}</td></tr>
+    <tr>
+        <td class="k">Moyenne générale /20</td>
+        <td class="v">{{ $globalStats['moy'] !== null ? number_format($globalStats['moy'], 2) . ' / 20' : '—' }}</td>
+    </tr>
+    <tr>
+        <td class="k">Total des crédits sur {{ $creditsAnnee }}</td>
+        <td class="v">{{ $globalStats['valides'] }} / {{ $creditsAnnee }}</td>
+    </tr>
+    <tr>
+        <td class="k">Mention</td>
+        <td class="v">{{ $mention }}</td>
+    </tr>
+    <tr>
+        <td class="k">Décision</td>
+        <td class="v">{{ $dette === 0 ? 'Admis(e)' : 'En dette de '.$dette.' crédit'.($dette > 1 ? 's' : '') }}</td>
+    </tr>
 </table>
 
 <table class="sig">
     <tr>
         <td>Le Chef de Département<div class="sig-line"></div></td>
-        <td>Le Directeur des Études<div class="sig-line"></div></td>
+        <td>Le Chef d'établissement<div class="sig-line"></div></td>
     </tr>
 </table>
-
-<div class="footer">
-    {{ config('etablissement.sigle') }} — {{ config('etablissement.nom') }} — {{ config('etablissement.adresse') }}
-    &nbsp;|&nbsp; Année académique {{ $anneeReleve }}
-    &nbsp;|&nbsp; Document généré le {{ now()->format('d/m/Y') }}
-</div>
 
 </body>
 </html>

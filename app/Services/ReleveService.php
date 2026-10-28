@@ -99,8 +99,6 @@ class ReleveService
                 $ue['credits_valides'] = $ueCreditsValides;
                 $ue['cote'] = self::cote($ueMoy);
                 $ue['session'] = self::periode($ueDate, $session['semestre']);
-                // La decision de l'UE, telle qu'elle se lit sur un releve LMD.
-                $ue['decision'] = $ueMoy === null ? '—' : ($ueValide ? 'V' : 'NV');
 
                 $ue['annee'] = AnneeAcademique::pour($ueDate);
 
@@ -149,17 +147,28 @@ class ReleveService
         return preg_match('/^C-[A-Za-z0-9]{5,8}$/', $code) === 1 ? '' : $code;
     }
 
-    /** « Master 1 » à partir d'un titre de session « M1-S8 ». */
+    /**
+     * Le niveau, lu dans le titre de la session.
+     *
+     * « M1-S8 » porte son annee : Master 1. « BTS-S1 » ne porte que son
+     * semestre : deux semestres font une annee, S1 et S2 sont donc la
+     * premiere.
+     */
     private static function niveau(string $titre): ?string
     {
-        if (preg_match('/^\s*([A-Za-z]+)\s*(\d)/', $titre, $trouve) !== 1) {
-            return null;
+        $cycles = ['L' => 'Licence', 'M' => 'Master', 'D' => 'Doctorat', 'P' => 'Prépa'];
+
+        if (preg_match('/^\s*([A-Za-z]+)\s*(\d)/', $titre, $trouve) === 1) {
+            $lettre = mb_strtoupper(mb_substr($trouve[1], 0, 1));
+
+            return ($cycles[$lettre] ?? mb_strtoupper($trouve[1])).' '.$trouve[2];
         }
 
-        $cycles = ['L' => 'Licence', 'M' => 'Master', 'D' => 'Doctorat', 'B' => 'BTS', 'P' => 'Prépa'];
-        $lettre = mb_strtoupper(mb_substr($trouve[1], 0, 1));
+        if (preg_match('/^\s*([A-Za-z]+)[^A-Za-z]*S\s*(\d+)/i', $titre, $trouve) === 1) {
+            return mb_strtoupper($trouve[1]).' '.(int) ceil(((int) $trouve[2]) / 2);
+        }
 
-        return ($cycles[$lettre] ?? mb_strtoupper($trouve[1])).' '.$trouve[2];
+        return null;
     }
 
     /** « S8 » à partir d'un titre de session « M1-S8 ». */
