@@ -62,14 +62,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     $anneeReleve = $globalStats['annee'] ?: AnneeAcademique::courante();
     $niveau = $globalStats['niveau'] ?? $user->cycle?->name;
 
-    $contacts = collect([
-        filled($etab['bp'] ?? null) ? 'BP '.$etab['bp'] : null,
-        $etab['adresse'] ?? null,
-        filled($etab['telephone'] ?? null)
-            ? 'Tél.'."\u{00A0}".str_replace(' ', "\u{00A0}", $etab['telephone'])
-            : null,
-        $etab['email'] ?: ($etab['domaine'] ?? null),
-    ])->filter()->implode(' — ');
 @endphp
 
 <table class="header-table">
@@ -85,7 +77,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
             @if (filled($etab['ecole_fr'] ?? null))
                 <div class="institut">{{ $etab['ecole_fr'] }}</div>
             @endif
-            <div class="coordonnees">{{ $contacts }}</div>
             @if (filled($entete['agrement_fr'] ?? null))
                 <div class="agrement">{{ $entete['agrement_fr'] }}</div>
             @endif
