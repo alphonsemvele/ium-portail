@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1a1a; padding: 20px 34px; }
+body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1a1a; padding: 20px 34px 46px; }
+/* dompdf reprend un bloc fixe sur chaque page : le pied suit le document. */
+.pied-page { position: fixed; bottom: 14px; left: 34px; right: 34px;
+             border-top: 0.5px solid #ccc; padding-top: 5px;
+             text-align: center; font-size: 7.4px; color: #666; line-height: 1.4; }
 .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .header-table td { vertical-align: middle; }
 .logo { height: 52px; margin-bottom: 2px; }
@@ -44,7 +48,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .bas-de-releve { page-break-inside: avoid; }
 .sig { width: 100%; margin-top: 14px; border-collapse: collapse; }
 .sig td { text-align: center; font-size: 9px; width: 50%; }
-.sig-line { border-top: 1px solid #999; margin: 18px 20px 4px; }
+.sig-line { border-top: 1px solid #999; margin: 16px 20px 0; }
 </style>
 </head>
 <body>
@@ -59,6 +63,21 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     // Le releve porte l'annee de ses sessions ; a defaut, celle en cours.
     $anneeReleve = $globalStats['annee'] ?: AnneeAcademique::courante();
     $niveau = $globalStats['niveau'] ?? $user->cycle?->name;
+
+    // Le pied de page : ou se trouve l'institut, et comment l'appeler.
+    $lieu = collect([
+        $etab['sigle'] ?? null,
+        $entete['nom_fr'] ?? ($etab['nom'] ?? null),
+        filled($etab['bp'] ?? null) ? 'BP '.$etab['bp'] : null,
+        $etab['adresse'] ?? null,
+    ])->filter()->implode(' — ');
+
+    $joindre = collect([
+        filled($etab['telephone'] ?? null)
+            ? 'Tél.'."\u{00A0}".str_replace(' ', "\u{00A0}", $etab['telephone'])
+            : null,
+        $etab['email'] ?: ($etab['domaine'] ?? null),
+    ])->filter()->implode(' — ');
 
 @endphp
 
@@ -214,6 +233,11 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     </tr>
 </table>
 
+</div>
+
+<div class="pied-page">
+    {{ $lieu }}
+    @if ($joindre)<br>{{ $joindre }}@endif
 </div>
 
 </body>
