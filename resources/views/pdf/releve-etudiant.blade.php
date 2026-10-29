@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1a1a; padding: 26px 34px; }
+body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1a1a; padding: 20px 34px; }
 .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .header-table td { vertical-align: middle; }
-.logo { height: 58px; margin-bottom: 3px; }
+.logo { height: 52px; margin-bottom: 2px; }
 .tutelle { text-align: center; vertical-align: top; }
 .etoiles { font-size: 7px; color: #888; letter-spacing: 1px; margin: 1px 0; }
 .ministere { font-size: 7.6px; font-weight: bold; line-height: 1.25; }
@@ -21,7 +21,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .doc-title { font-size: 15px; font-weight: bold; margin-top: 6px; letter-spacing: .5px; text-align: center; }
 .republic { font-size: 9px; font-weight: bold; text-align: center; }
 .motto { font-size: 8px; color: #777; font-style: italic; text-align: center; margin-top: 2px; }
-.sep { border: none; border-top: 2px solid #1a1a1a; margin: 8px 0; }
+.sep { border: none; border-top: 2px solid #1a1a1a; margin: 6px 0; }
 .info-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
 .info-table td { padding: 3px 6px; font-size: 10px; }
 .info-label { font-weight: bold; width: 20%; line-height: 1.2; }
@@ -36,17 +36,15 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .sem-row td { background: #1a1a1a; color: #fff; font-weight: bold; font-size: 9px; padding: 4px 6px; text-align: left; }
 .ue-row td { background: #e8f5e9; font-weight: bold; border-top: 0.5px solid #c8e6c9; border-bottom: 0.5px solid #c8e6c9; }
 .ue-row td.l { text-align: left; }
-.matiere-row td.l { padding-left: 16px; }
-.ok { color: #1a6b1a; }
-.ko { color: #b71c1c; }
-.recap { width: 100%; border-collapse: collapse; margin-top: 14px; border: 1px solid #1a1a1a; }
-.recap td { padding: 6px 12px; font-size: 10.5px; }
+.recap { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #1a1a1a; }
+.recap td { padding: 5px 12px; font-size: 10.5px; }
 .recap .k { background: #f0f0f0; font-weight: bold; width: 60%; }
 .recap .v { text-align: right; font-weight: bold; }
-.bareme { margin-top: 6px; font-size: 7.5px; color: #555; }
-.sig { width: 100%; margin-top: 26px; border-collapse: collapse; }
+.bareme { margin-top: 5px; font-size: 7.5px; color: #555; }
+.bas-de-releve { page-break-inside: avoid; }
+.sig { width: 100%; margin-top: 14px; border-collapse: collapse; }
 .sig td { text-align: center; font-size: 9px; width: 50%; }
-.sig-line { border-top: 1px solid #999; margin: 26px 20px 4px; }
+.sig-line { border-top: 1px solid #999; margin: 18px 20px 4px; }
 </style>
 </head>
 <body>
@@ -163,23 +161,14 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
                 <td>{{ $ue['session'] }}</td>
                 <td>{{ $ue['cote'] }}</td>
             </tr>
-            @foreach ($ue['lignes'] as $l)
-                <tr class="matiere-row">
-                    <td class="l">{{ $l['code'] }}</td>
-                    <td class="l">{{ $l['nom'] }}</td>
-                    <td>{{ $l['credit'] }}</td>
-                    <td class="{{ $l['moy'] !== null ? ($l['moy'] >= 10 ? 'ok' : 'ko') : '' }}">{{ $l['moy'] !== null ? number_format($l['moy'], 2) : '—' }}</td>
-                    <td>{{ $l['credits_valides'] }}</td>
-                    <td>{{ $l['session'] }}</td>
-                    <td>—</td>
-                </tr>
-            @endforeach
         @endforeach
     @empty
         <tr><td colspan="7" style="text-align:center; color:#888; padding:30px 0;">Aucune note disponible.</td></tr>
     @endforelse
     </tbody>
 </table>
+
+<div class="bas-de-releve">
 
 <div class="bareme">NB : 0&lt;=F&lt;6 ; 6&lt;=D&lt;8 ; 8&lt;=D+&lt;9 ; 9&lt;=C-&lt;10 ; 10&lt;=C&lt;11 ; 11&lt;=C+&lt;12 ; 12&lt;=B-&lt;13 ; 13&lt;=B&lt;14 ; 14&lt;=B+&lt;15 ; 15&lt;=A-&lt;16 ; 16&lt;=A&lt;20</div>
 
@@ -224,6 +213,8 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
         <td>Le Chef d'établissement<div class="sig-line"></div></td>
     </tr>
 </table>
+
+</div>
 
 </body>
 </html>
