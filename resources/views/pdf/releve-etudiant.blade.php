@@ -247,6 +247,14 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
         'Insuffisant' => '#c62828',
         default => '#1a1a1a',
     };
+
+    // La decision du conseil, telle que la moyenne la dicte.
+    [$decision, $couleurDecision] = match (true) {
+        $globalStats['moy'] === null => ['—', '#1a1a1a'],
+        $globalStats['moy'] >= 10 => ['ADMIS(E)', '#1b5e20'],
+        $globalStats['moy'] >= 8 => ['AJOURNÉ(E) — SESSION DE RATTRAPAGE', '#ef6c00'],
+        default => ['NON ADMIS(E)', '#c62828'],
+    };
 @endphp
 
 <table class="recap">
@@ -261,6 +269,10 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     <tr>
         <td class="k">Mention</td>
         <td class="v mention" style="color: {{ $couleurMention }};">{{ mb_strtoupper($mention) }}</td>
+    </tr>
+    <tr>
+        <td class="k">Décision du conseil</td>
+        <td class="v mention" style="color: {{ $couleurDecision }};">{{ $decision }}</td>
     </tr>
 </table>
 
