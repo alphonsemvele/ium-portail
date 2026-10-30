@@ -11,7 +11,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
              text-align: center; font-size: 7.4px; color: #666; line-height: 1.4; }
 .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .header-table td { vertical-align: middle; }
-.logo { height: 52px; margin-bottom: 2px; }
+.logo { height: 86px; }
 .tutelle { text-align: center; vertical-align: top; }
 .etoiles { font-size: 7px; color: #888; letter-spacing: 1px; margin: 1px 0; }
 .ministere { font-size: 7.6px; font-weight: bold; line-height: 1.25; }
@@ -20,9 +20,10 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .coordonnees { font-size: 7px; color: #555; margin-top: 2px; line-height: 1.3; }
 .agrement { font-size: 6.6px; color: #666; margin-top: 2px; line-height: 1.25; }
 .annee { text-align: center; font-size: 9.5px; margin-top: 3px; }
-.school-fr { font-size: 13px; font-weight: bold; }
-.school-en { font-size: 10px; color: #444; margin-top: 2px; }
-.doc-title { font-size: 15px; font-weight: bold; margin-top: 6px; letter-spacing: .5px; text-align: center; }
+.titre-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.titre-table td { vertical-align: bottom; }
+.doc-title { font-size: 15px; font-weight: bold; letter-spacing: .5px; text-align: center; }
+.reference { text-align: right; font-size: 9px; font-weight: bold; white-space: nowrap; }
 .republic { font-size: 9px; font-weight: bold; text-align: center; }
 .motto { font-size: 8px; color: #777; font-style: italic; text-align: center; margin-top: 2px; }
 .sep { border: none; border-top: 2px solid #1a1a1a; margin: 6px 0; }
@@ -44,7 +45,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .recap td { padding: 5px 12px; font-size: 10.5px; }
 .recap .k { background: #f0f0f0; font-weight: bold; width: 60%; }
 .recap .v { text-align: right; font-weight: bold; }
-.bareme { margin-top: 5px; font-size: 7.5px; color: #555; }
 .bas-de-releve { page-break-inside: avoid; }
 .sig { width: 100%; margin-top: 14px; border-collapse: collapse; }
 .sig td { text-align: center; font-size: 9px; width: 50%; }
@@ -71,6 +71,15 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
         filled($etab['bp'] ?? null) ? 'BP '.$etab['bp'] : null,
         $etab['adresse'] ?? null,
     ])->filter()->implode(' — ');
+
+    // Le numero d'ordre du releve : une suite melangee de l'identifiant de
+    // l'etudiant (7919 et 9973 sont premiers entre eux, donc deux etudiants
+    // n'ont jamais le meme numero) suivie de l'annee. Il ne bouge pas d'une
+    // impression a l'autre : c'est la reference du document.
+    $ordre = str_pad((string) ((($user->id ?? 0) * 7919 + 1234) % 9973), 4, '0', STR_PAD_LEFT);
+    // Le sigle tient en un mot dans une reference : « IUM NDAZOA » y entre en « IUM ».
+    $sigleCourt = strtok((string) ($etab['sigle'] ?? 'IUM'), ' ') ?: 'IUM';
+    $reference = 'N° '.$ordre.'/DG/'.$sigleCourt.'/'.str_replace('/', '-', (string) $anneeReleve);
 
     $joindre = collect([
         filled($etab['telephone'] ?? null)
@@ -103,7 +112,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
             @if (is_file($logo))
                 <img src="{{ $logo }}" class="logo" alt="">
             @endif
-            <div class="school-fr">{{ $etab['sigle'] }}</div>
         </td>
 
         <td width="37%" class="tutelle">
@@ -123,7 +131,13 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     </tr>
 </table>
 
-<div class="doc-title">RELEVÉ DE NOTES / TRANSCRIPT</div>
+<table class="titre-table">
+    <tr>
+        <td width="26%"></td>
+        <td width="48%" class="doc-title">RELEVÉ DE NOTES / TRANSCRIPT</td>
+        <td width="26%" class="reference">{{ $reference }}</td>
+    </tr>
+</table>
 <div class="annee">Année académique / Academic year : <strong>{{ $anneeReleve }}</strong></div>
 
 <hr class="sep">
@@ -131,7 +145,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 <table class="info-table">
     <tr>
         <td class="info-label">Nom &amp; Prénom<span class="en">Surname and name</span></td>
-        <td class="info-value"><strong>{{ strtoupper($user->name ?? '') }} {{ $user->lastname ?? '' }}</strong></td>
+        <td class="info-value"><strong>{{ mb_strtoupper($user->name ?? '') }} {{ $user->lastname ?? '' }}</strong></td>
         <td class="info-label">Matricule<span class="en">Registration n°</span></td>
         <td class="info-value">{{ $user->matricule ?: '—' }}</td>
     </tr>
@@ -188,8 +202,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 </table>
 
 <div class="bas-de-releve">
-
-<div class="bareme">NB : 0&lt;=F&lt;6 ; 6&lt;=D&lt;8 ; 8&lt;=D+&lt;9 ; 9&lt;=C-&lt;10 ; 10&lt;=C&lt;11 ; 11&lt;=C+&lt;12 ; 12&lt;=B-&lt;13 ; 13&lt;=B&lt;14 ; 14&lt;=B+&lt;15 ; 15&lt;=A-&lt;16 ; 16&lt;=A&lt;20</div>
 
 @php
     // Les credits d'une annee academique, tels que le releve les annonce.
