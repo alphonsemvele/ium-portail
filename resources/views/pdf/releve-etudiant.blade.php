@@ -1,3 +1,24 @@
+@php
+    // Le tableau respire tant que le releve est court et se resserre quand il
+    // s'allonge : la largeur ne bouge pas, seule la hauteur des lignes suit.
+    // Le cout estime compte les lignes de texte des intitules, la marge de
+    // chaque ligne et les bandeaux de semestre.
+    $lignesTexte = 0;
+    $nbUe = 0;
+
+    foreach ($sessions as $session) {
+        foreach ($session['ues'] as $ue) {
+            $nbUe++;
+            $lignesTexte += max(1, (int) ceil(mb_strlen((string) $ue['name']) / 54));
+        }
+    }
+
+    $cout = $lignesTexte + 0.6 * $nbUe + 1.5 * count($sessions);
+
+    // 34 est le releve type : au-dela on resserre, en deca on agrandit.
+    $k = max(0.88, min(1.25, 1 - 0.0117 * ($cout - 34)));
+    $px = fn (float $base) => round($base * $k, 2).'px';
+@endphp
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -27,27 +48,27 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .republic { font-size: 9px; font-weight: bold; text-align: center; }
 .motto { font-size: 8px; color: #777; font-style: italic; text-align: center; margin-top: 2px; }
 .sep { border: none; border-top: 2px solid #1a1a1a; margin: 6px 0; }
-.info-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-.info-table td { padding: 3px 6px; font-size: 10px; }
+.info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+.info-table td { padding: 2px 6px; font-size: 10px; }
 .info-label { font-weight: bold; width: 20%; line-height: 1.2; }
 .info-label .en { display: block; font-weight: normal; font-style: italic; font-size: 7.6px; color: #666; }
-.en-th { display: block; font-weight: normal; font-style: italic; font-size: 7px; color: #d8d8d8; }
+.en-th { display: block; font-weight: normal; font-style: italic; font-size: {{ $px(7.2) }}; color: #d8d8d8; }
 .info-value { border-bottom: 1px solid #bbb; }
 .notes-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-.notes-table th { background: #1a1a1a; color: white; padding: 4px 6px; font-size: 8.5px; text-align: center; }
+.notes-table th { background: #1a1a1a; color: white; padding: {{ $px(3.6) }} 6px; font-size: {{ $px(8.9) }}; text-align: center; }
 .notes-table th.l { text-align: left; }
-.notes-table td { padding: 3px 6px; font-size: 8.5px; border-bottom: 0.5px solid #e5e5e5; text-align: center; }
+.notes-table td { padding: {{ $px(3.5) }} 6px; font-size: {{ $px(8.9) }}; line-height: 1.32; border-bottom: 0.5px solid #e5e5e5; text-align: center; }
 .notes-table td.l { text-align: left; }
-.sem-row td { background: #1a1a1a; color: #fff; font-weight: bold; font-size: 9px; padding: 4px 6px; text-align: left; }
+.sem-row td { background: #1a1a1a; color: #fff; font-weight: bold; font-size: {{ $px(9.3) }}; padding: {{ $px(3.8) }} 6px; text-align: left; }
 .ue-row td { background: #e8f5e9; font-weight: bold; border-top: 0.5px solid #c8e6c9; border-bottom: 0.5px solid #c8e6c9; }
 .ue-row td.l { text-align: left; }
-.recap { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #1a1a1a; }
-.recap td { padding: 5px 12px; font-size: 10.5px; }
+.recap { width: 100%; border-collapse: collapse; margin-top: {{ $px(10) }}; border: 1px solid #1a1a1a; }
+.recap td { padding: {{ $px(5) }} 12px; font-size: 10.5px; }
 .recap .k { background: #f0f0f0; font-weight: bold; width: 60%; }
 .recap .v { text-align: right; font-weight: bold; }
 .recap .mention { font-size: 12px; letter-spacing: .4px; }
 .bas-de-releve { page-break-inside: avoid; }
-.sig { width: 100%; margin-top: 14px; border-collapse: collapse; }
+.sig { width: 100%; margin-top: {{ $px(13) }}; border-collapse: collapse; }
 .sig td { text-align: center; font-size: 9px; width: 50%; }
 .sig-line { border-top: 1px solid #999; margin: 16px 20px 0; }
 </style>
@@ -173,13 +194,13 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 <table class="notes-table">
     <thead>
         <tr>
-            <th class="l" style="width:10%;">Codes</th>
-            <th class="l" style="width:35%;">Intitulés</th>
-            <th style="width:9%;">Crédits</th>
-            <th style="width:10%;">Note<span class="en-th">/20</span></th>
-            <th style="width:12%;">Crédits acquis<span class="en-th">credits earned</span></th>
-            <th style="width:16%;">Année académique<span class="en-th">et semestre</span></th>
-            <th style="width:10%;">Grade</th>
+            <th class="l" style="width:9%;">Codes</th>
+            <th class="l" style="width:41%;">Intitulés</th>
+            <th style="width:8%;">Crédits</th>
+            <th style="width:9%;">Note<span class="en-th">/20</span></th>
+            <th style="width:11%;">Crédits acquis<span class="en-th">credits earned</span></th>
+            <th style="width:14%;">Année académique<span class="en-th">et semestre</span></th>
+            <th style="width:8%;">Grade</th>
         </tr>
     </thead>
     <tbody>
