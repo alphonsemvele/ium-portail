@@ -45,6 +45,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .recap td { padding: 5px 12px; font-size: 10.5px; }
 .recap .k { background: #f0f0f0; font-weight: bold; width: 60%; }
 .recap .v { text-align: right; font-weight: bold; }
+.recap .mention { font-size: 12px; letter-spacing: .4px; }
 .bas-de-releve { page-break-inside: avoid; }
 .sig { width: 100%; margin-top: 14px; border-collapse: collapse; }
 .sig td { text-align: center; font-size: 9px; width: 50%; }
@@ -216,7 +217,15 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
         default => 'Insuffisant',
     };
 
-    $dette = max($creditsAnnee - $globalStats['valides'], 0);
+    // La mention se lit a la couleur : du vert de « Tres bien » au rouge.
+    $couleurMention = match ($mention) {
+        'Très bien' => '#1b5e20',
+        'Bien' => '#2e7d32',
+        'Assez bien' => '#0277bd',
+        'Passable' => '#ef6c00',
+        'Insuffisant' => '#c62828',
+        default => '#1a1a1a',
+    };
 @endphp
 
 <table class="recap">
@@ -230,11 +239,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     </tr>
     <tr>
         <td class="k">Mention</td>
-        <td class="v">{{ $mention }}</td>
-    </tr>
-    <tr>
-        <td class="k">Décision</td>
-        <td class="v">{{ $dette === 0 ? 'Admis(e)' : 'En dette de '.$dette.' crédit'.($dette > 1 ? 's' : '') }}</td>
+        <td class="v mention" style="color: {{ $couleurMention }};">{{ mb_strtoupper($mention) }}</td>
     </tr>
 </table>
 
