@@ -178,8 +178,8 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
         <td class="info-value">{{ $user->lieu_naissance ?: '—' }}</td>
     </tr>
     <tr>
-        <td class="info-label">Année<span class="en">Year</span></td>
-        <td class="info-value">{{ $anneeReleve }}</td>
+        <td class="info-label">Semestre<span class="en">Semester</span></td>
+        <td class="info-value">{{ $globalStats['semestre'] ?: '—' }}</td>
         <td class="info-label">Filière<span class="en">Discipline</span></td>
         <td class="info-value">{{ $user->filiere?->name ?: ($filiere ?: '—') }}</td>
     </tr>
@@ -195,11 +195,11 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     <thead>
         <tr>
             <th class="l" style="width:9%;">Codes</th>
-            <th class="l" style="width:41%;">Intitulés</th>
+            <th class="l" style="width:39%;">Intitulés</th>
             <th style="width:8%;">Crédits</th>
             <th style="width:9%;">Note<span class="en-th">/20</span></th>
             <th style="width:11%;">Crédits acquis<span class="en-th">credits earned</span></th>
-            <th style="width:14%;">Année académique<span class="en-th">et semestre</span></th>
+            <th style="width:16%;">Année académique<span class="en-th">et semestre</span></th>
             <th style="width:8%;">Grade</th>
         </tr>
     </thead>
@@ -226,8 +226,15 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 <div class="bas-de-releve">
 
 @php
-    // Les credits d'une annee academique, tels que le releve les annonce.
-    $creditsAnnee = (int) config('etablissement.credits_annee', 60);
+    // Un releve porte sur un semestre : les credits se comptent sur le semestre.
+    // Un releve qui en reunirait plusieurs se compte sur l'annee.
+    $creditsReference = count($sessions) > 1
+        ? (int) config('etablissement.credits_annee', 60)
+        : (int) config('etablissement.credits_semestre', 30);
+
+    // Un programme un peu plus charge que le bareme officiel : le releve
+    // compte alors sur ses propres credits, jamais moins.
+    $creditsReference = max($creditsReference, (int) $globalStats['credits']);
 
     $mention = match (true) {
         $globalStats['moy'] === null => '—',
@@ -263,8 +270,8 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
         <td class="v">{{ $globalStats['moy'] !== null ? number_format($globalStats['moy'], 2) . ' / 20' : '—' }}</td>
     </tr>
     <tr>
-        <td class="k">Total des crédits sur {{ $creditsAnnee }}</td>
-        <td class="v">{{ $globalStats['valides'] }} / {{ $creditsAnnee }}</td>
+        <td class="k">Total des crédits sur {{ $creditsReference }}</td>
+        <td class="v">{{ $globalStats['valides'] }} / {{ $creditsReference }}</td>
     </tr>
     <tr>
         <td class="k">Mention</td>

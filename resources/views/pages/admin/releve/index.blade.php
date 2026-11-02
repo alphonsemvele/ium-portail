@@ -129,7 +129,10 @@ new class extends Component {
     {
         $etudiant = User::with(['filiere', 'specialite.filiere', 'cycle'])->findOrFail($etudiantId);
 
-        [$sessions, $globalStats] = \App\Services\ReleveService::build($etudiant, $this->examen_id);
+        // Un releve porte sur un semestre : la session filtree, ou la derniere.
+        $examenId = $this->examen_id ?: \App\Services\ReleveService::derniereSession($etudiant);
+
+        [$sessions, $globalStats] = \App\Services\ReleveService::build($etudiant, $examenId);
 
         $filiere = $etudiant->filiere?->name ?? $etudiant->specialite?->filiere?->name ?? $etudiant->specialite?->name;
 

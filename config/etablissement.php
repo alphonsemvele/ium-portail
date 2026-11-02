@@ -34,6 +34,9 @@ return [
      */
     'credits_annee' => (int) env('ETABLISSEMENT_CREDITS_ANNEE', 60),
 
+    // Un releve porte sur un semestre : la moitie des credits de l'annee.
+    'credits_semestre' => (int) env('ETABLISSEMENT_CREDITS_SEMESTRE', 30),
+
     /*
      * Le ministere de tutelle, tel qu'il s'imprime en tete des documents
      * officiels. L'IUM releve du MINESUP ; l'IFPM et le GSBM ont le leur.

@@ -86,7 +86,9 @@ new class extends Component {
                     <p class="text-gray-500">Vos notes et résultats @if($filiere)— {{ $filiere }} @endif</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <a href="{{ route('releve.mine') }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Télécharger PDF</a>
+                    @if (count($sessions))
+                        <a href="{{ route('releve.mine') }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Relevé du dernier semestre</a>
+                    @endif
                 </div>
             </div>
 
@@ -117,11 +119,19 @@ new class extends Component {
                 </div>
             </div>
 
-            @forelse ($sessions as $session)
+            @forelse ($sessions as $sessionId => $session)
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
                     <div class="px-6 py-4 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
                         <h3 class="text-base font-bold text-emerald-800">{{ $session['titre'] }}</h3>
-                        <span class="text-sm font-semibold text-emerald-700">{{ $session['valides'] }}/{{ $session['credits'] }} crédits validés</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-semibold text-emerald-700">{{ $session['valides'] }}/{{ $session['credits'] }} crédits validés</span>
+                            {{-- Le relevé porte sur ce semestre, et sur lui seul. --}}
+                            <a href="{{ route('releve.mine', ['session' => $sessionId]) }}"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold hover:bg-emerald-100">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                                Relevé PDF
+                            </a>
+                        </div>
                     </div>
                     <div class="p-4 sm:p-6 space-y-6">
                         @foreach ($session['ues'] as $ue)

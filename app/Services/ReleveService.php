@@ -124,6 +124,8 @@ class ReleveService
             // Ce que l'en-tete annonce : l'annee et le niveau du releve.
             'annee' => $annees->count() === 1 ? $annees->first() : $annees->implode(' — '),
             'niveau' => collect($sessions)->pluck('niveau')->filter()->last(),
+            // Un relevé porte sur un semestre : celui de sa session.
+            'semestre' => self::libelleSemestre(collect($sessions)->pluck('titre')->last()),
             'credits' => $totCredits,
             'valides' => $totValides,
             'reste' => max($totCredits - $totValides, 0),
@@ -131,6 +133,39 @@ class ReleveService
         ];
 
         return [$sessions, $globalStats];
+    }
+
+    /**
+     * Les sessions d'examen où l'étudiant a des notes, de la plus récente à la
+     * plus ancienne : un relevé porte sur l'une d'elles, c'est-à-dire sur un
+     * semestre.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Examen>
+     */
+    public static function sessionsDe(User $etudiant)
+    {
+        return Note::where('etudiant_id', $etudiant->id)
+            ->with('examen')
+            ->get()
+            ->pluck('examen')
+            ->filter()
+            ->unique('id')
+            ->sortByDesc(fn ($examen) => [$examen->date, $examen->id])
+            ->values();
+    }
+
+    /** La session la plus récente : celle qu'un relevé sans précision désigne. */
+    public static function derniereSession(User $etudiant): ?int
+    {
+        return self::sessionsDe($etudiant)->first()?->id;
+    }
+
+    /** Le semestre lu dans le titre d'une session, pour l'afficher au complet. */
+    public static function libelleSemestre(?string $titre): ?string
+    {
+        $court = $titre !== null ? self::semestre($titre) : null;
+
+        return $court ? 'Semestre '.ltrim($court, 'Ss') : null;
     }
 
     /**
