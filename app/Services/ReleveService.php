@@ -52,7 +52,13 @@ class ReleveService
             $un = $cours->ue->name ?? 'Autres matières';
             $uc = $cours->ue->code ?? '';
             if (!isset($sessions[$sk]['ues'][$uk])) {
-                $sessions[$sk]['ues'][$uk] = ['name' => $un, 'code' => $uc, 'lignes' => []];
+                $sessions[$sk]['ues'][$uk] = [
+                    'name' => $un,
+                    'code' => $uc,
+                    // Les credits declares sur l'unite d'enseignement font foi.
+                    'declares' => (int) ($cours->ue->credits ?? 0),
+                    'lignes' => [],
+                ];
             }
 
             $sessions[$sk]['ues'][$uk]['lignes'][] = [
@@ -70,10 +76,12 @@ class ReleveService
             $sessionCredits = 0; $sessionValides = 0;
 
             foreach ($session['ues'] as $uk => &$ue) {
-                $ueCredits = 0; $ueSomme = 0; $ueDate = null;
+                // Le poids sert a la moyenne de l'UE : il vient des matieres.
+                // Les credits imprimes, eux, sont ceux declares sur l'UE.
+                $poids = 0; $ueSomme = 0; $ueDate = null;
 
                 foreach ($ue['lignes'] as $l) {
-                    $ueCredits += $l['credit'];
+                    $poids += $l['credit'];
                     if ($l['moy'] !== null) {
                         $ueSomme += $l['moy'] * $l['credit'];
                         $matieres++;
@@ -83,7 +91,10 @@ class ReleveService
                     }
                 }
 
-                $ueMoy = $ueCredits > 0 ? round($ueSomme / $ueCredits, 2) : null;
+                // L'UE porte ses credits ; a defaut seulement, on les somme.
+                $ueCredits = $ue['declares'] > 0 ? $ue['declares'] : $poids;
+
+                $ueMoy = $poids > 0 ? round($ueSomme / $poids, 2) : null;
                 $ueValide = $ueMoy !== null && $ueMoy >= 10;
                 $ueCreditsValides = $ueValide ? $ueCredits : 0;
 
@@ -94,6 +105,7 @@ class ReleveService
                 }
                 unset($l);
 
+                unset($ue['declares']);
                 $ue['credits'] = $ueCredits;
                 $ue['moy'] = $ueMoy;
                 $ue['credits_valides'] = $ueCreditsValides;

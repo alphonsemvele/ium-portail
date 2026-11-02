@@ -34,6 +34,9 @@ return [
      */
     'credits_annee' => (int) env('ETABLISSEMENT_CREDITS_ANNEE', 60),
 
+    // Le sigle porte par les matricules des etudiants : « IUM-26-0147 ».
+    'sigle_matricule' => env('ETABLISSEMENT_SIGLE_MATRICULE'),
+
     // Un releve porte sur un semestre : la moitie des credits de l'annee.
     'credits_semestre' => (int) env('ETABLISSEMENT_CREDITS_SEMESTRE', 30),
 

@@ -6,6 +6,7 @@ use App\Models\Cycle;
 use App\Models\Departement;
 use App\Models\Filiere;
 use App\Models\Specialite;
+use App\Services\MatriculesEtudiants;
 use Illuminate\Support\Str;
 
 name('admin.etudiants');
@@ -293,7 +294,8 @@ new class extends Component {
                 'sexe'           => 'nullable|in:M,F',
             ]);
 
-            $matricule = 'ETU-' . strtoupper(Str::random(6));
+            // Le matricule de l'institut : IUM-26-0147.
+            $matricule = app(MatriculesEtudiants::class)->prochain();
 
             User::create([
                 'name'           => $this->name,

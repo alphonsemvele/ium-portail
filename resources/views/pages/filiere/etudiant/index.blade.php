@@ -4,6 +4,7 @@ use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use App\Models\User;
 use App\Models\Specialite;
+use App\Services\MatriculesEtudiants;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 
@@ -119,13 +120,10 @@ new class extends Component {
         $this->resetForm();
     }
 
+    /** Le matricule de l'institut : IUM-26-0147. */
     private function generateUniqueMatricule(): string
     {
-        do {
-            $matricule = 'ETU-' . strtoupper(Str::random(6));
-        } while (User::where('matricule', $matricule)->exists());
-
-        return $matricule;
+        return app(MatriculesEtudiants::class)->prochain();
     }
 
     public function save()
