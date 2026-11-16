@@ -36,7 +36,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .tutelle { text-align: center; vertical-align: top; }
 .etoiles { font-size: 7px; color: #888; letter-spacing: 1px; margin: 1px 0; }
 .ministere { font-size: 7.6px; font-weight: bold; line-height: 1.25; }
-.sigle-ministere { font-size: 7.6px; font-weight: bold; }
 .institut { font-size: 8px; font-weight: bold; line-height: 1.25; margin-top: 2px; }
 .coordonnees { font-size: 7px; color: #555; margin-top: 2px; line-height: 1.3; }
 .agrement { font-size: 6.6px; color: #666; margin-top: 2px; line-height: 1.25; }
@@ -119,7 +118,6 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
             <div class="motto">Paix — Travail — Patrie</div>
             <div class="etoiles">**********</div>
             <div class="ministere">{{ config('etablissement.ministere_fr') }}</div>
-            <div class="sigle-ministere">({{ config('etablissement.ministere_sigle') }})</div>
             <div class="etoiles">**********</div>
             <div class="institut">{{ $entete['nom_fr'] ?? $etab['nom'] }}</div>
             @if (filled($etab['ecole_fr'] ?? null))
@@ -266,7 +264,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 
 <table class="recap">
     <tr>
-        <td class="k">Moyenne générale /20</td>
+        <td class="k">Moyenne générale pondérée (MGP) /20</td>
         <td class="v">{{ $globalStats['moy'] !== null ? number_format($globalStats['moy'], 2) . ' / 20' : '—' }}</td>
     </tr>
     <tr>
@@ -278,7 +276,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
         <td class="v mention" style="color: {{ $couleurMention }};">{{ mb_strtoupper($mention) }}</td>
     </tr>
     <tr>
-        <td class="k">Décision du conseil</td>
+        <td class="k">Décision du conseil de département</td>
         <td class="v mention" style="color: {{ $couleurDecision }};">{{ $decision }}</td>
     </tr>
 </table>
