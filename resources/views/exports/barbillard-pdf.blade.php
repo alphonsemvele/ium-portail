@@ -191,7 +191,7 @@ table.main td {
             <div class="sub">
                 <span class="tag">{{ strtoupper($specialite?->name ?? '—') }}</span>
                 &nbsp;&nbsp;
-                <span class="tag">{{ strtoupper($examen?->titre ?? '—') }}</span>
+                <span class="tag">{{ mb_strtoupper($examen?->libelleAffiche() ?? '—') }}</span>
                 &nbsp;&nbsp;
                 @if (($modeApres ?? false))
                     <span style="background:#dc2626;color:#fff;font-size:6.5pt;font-weight:bold;padding:1px 5px;">APRÈS RATTRAPAGE</span>

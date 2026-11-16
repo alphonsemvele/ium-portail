@@ -40,6 +40,8 @@ class ReleveService
             if (!isset($sessions[$sk])) {
                 $sessions[$sk] = [
                     'titre' => $st,
+                    // Ce que le releve imprime en tete de session.
+                    'libelle' => $note->examen?->libelleAffiche() ?? $st,
                     // Le titre de la session porte le niveau et le semestre :
                     // « M1-S8 » se lit « Master 1, semestre 8 ».
                     'niveau' => self::niveau($st),
@@ -201,7 +203,7 @@ class ReleveService
      * semestre : deux semestres font une annee, S1 et S2 sont donc la
      * premiere.
      */
-    private static function niveau(string $titre): ?string
+    public static function niveau(string $titre): ?string
     {
         $cycles = ['L' => 'Licence', 'M' => 'Master', 'D' => 'Doctorat', 'P' => 'Prépa'];
 
@@ -219,7 +221,7 @@ class ReleveService
     }
 
     /** « S8 » à partir d'un titre de session « M1-S8 ». */
-    private static function semestre(string $titre): ?string
+    public static function semestre(string $titre): ?string
     {
         return preg_match('/S\s*(\d+)/i', $titre, $trouve) === 1 ? 'S'.$trouve[1] : null;
     }

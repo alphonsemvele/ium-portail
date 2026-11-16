@@ -13,6 +13,7 @@ new class extends Component {
     use WithPagination;
 
     public $titre = '';
+    public $libelle = '';
     public $date = '';
     public $description = '';
     public $cycle_id = '';
@@ -51,6 +52,7 @@ new class extends Component {
     {
         $this->selectedExamen = Examen::findOrFail($id);
         $this->titre = $this->selectedExamen->titre;
+        $this->libelle = $this->selectedExamen->libelle;
         $this->date = $this->selectedExamen->date?->format('Y-m-d');
         $this->description = $this->selectedExamen->description ?? '';
         $this->cycle_id = $this->selectedExamen->cycle_id ?? '';
@@ -83,6 +85,7 @@ new class extends Component {
     {
         $this->validate([
             'titre'       => 'required|string|max:255',
+            'libelle'     => 'nullable|string|max:255',
             'date'        => 'required|date',
             'description' => 'nullable|string',
             'cycle_id'    => 'required|exists:cycles,id',
@@ -90,6 +93,7 @@ new class extends Component {
 
         Examen::create([
             'titre'       => $this->titre,
+            'libelle'     => $this->libelle ?: \App\Models\Examen::libelleDepuisTitre($this->titre),
             'date'        => $this->date,
             'description' => $this->description,
             'cycle_id'    => $this->cycle_id,
@@ -104,6 +108,7 @@ new class extends Component {
     {
         $this->validate([
             'titre'       => 'required|string|max:255',
+            'libelle'     => 'nullable|string|max:255',
             'date'        => 'required|date',
             'description' => 'nullable|string',
             'cycle_id'    => 'required|exists:cycles,id',
@@ -111,6 +116,7 @@ new class extends Component {
 
         $this->selectedExamen->update([
             'titre'       => $this->titre,
+            'libelle'     => $this->libelle ?: \App\Models\Examen::libelleDepuisTitre($this->titre),
             'date'        => $this->date,
             'description' => $this->description,
             'cycle_id'    => $this->cycle_id,
@@ -138,6 +144,7 @@ new class extends Component {
     private function resetForm()
     {
         $this->titre = '';
+        $this->libelle = '';
         $this->date = '';
         $this->description = '';
         $this->cycle_id = '';
@@ -227,7 +234,10 @@ new class extends Component {
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                                 </svg>
                                             </div>
-                                            <p class="font-medium text-gray-800">{{ $examen->titre }}</p>
+                                            <div>
+                                                <p class="font-medium text-gray-800">{{ $examen->titre }}</p>
+                                                <p class="text-xs text-gray-500">{{ $examen->libelleAffiche() }}</p>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">
@@ -329,6 +339,12 @@ new class extends Component {
                                 @error('titre') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                             <div>
+                                <label class="block text-sm font-medium text-gray-600 mb-1">Libellé imprimé</label>
+                                <input type="text" wire:model="libelle" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Ex: BTS — Semestre 1">
+                                <p class="text-xs text-gray-400 mt-1">Ce que les bulletins et les relevés affichent. Laissé vide, il est déduit du titre.</p>
+                                @error('libelle') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
                                 <label class="block text-sm font-medium text-gray-600 mb-1">Cycle <span class="text-red-500">*</span></label>
                                 <select wire:model="cycle_id" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white">
                                     <option value="">— Sélectionner un cycle —</option>
@@ -374,6 +390,12 @@ new class extends Component {
                                 <label class="block text-sm font-medium text-gray-600 mb-1">Titre de l'examen <span class="text-red-500">*</span></label>
                                 <input type="text" wire:model="titre" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                                 @error('titre') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-600 mb-1">Libellé imprimé</label>
+                                <input type="text" wire:model="libelle" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Ex: BTS — Semestre 1">
+                                <p class="text-xs text-gray-400 mt-1">Ce que les bulletins et les relevés affichent. Laissé vide, il est déduit du titre.</p>
+                                @error('libelle') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-600 mb-1">Cycle <span class="text-red-500">*</span></label>

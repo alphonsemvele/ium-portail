@@ -35,7 +35,7 @@ new class extends Component {
             $valide = $moy !== null && $moy >= 10;
 
             $sk = $note->examen->id ?? 0;
-            $st = $note->examen->titre ?? 'Session non définie';
+            $st = $note->examen?->libelleAffiche() ?? 'Session non définie';
             if (!isset($sessions[$sk])) $sessions[$sk] = ['titre' => $st, 'ues' => [], 'credits' => 0, 'valides' => 0];
 
             $uk = $cours->ue->id ?? 0;

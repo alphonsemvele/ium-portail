@@ -203,7 +203,7 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     </thead>
     <tbody>
     @forelse ($sessions as $session)
-        <tr class="sem-row"><td colspan="7">{{ $session['titre'] }} — {{ $session['valides'] }}/{{ $session['credits'] }} crédits validés</td></tr>
+        <tr class="sem-row"><td colspan="7">{{ $session['libelle'] ?? $session['titre'] }} — {{ $session['valides'] }}/{{ $session['credits'] }} crédits validés</td></tr>
         @foreach ($session['ues'] as $ue)
             <tr class="ue-row">
                 <td class="l">{{ $ue['code'] ?: 'UE' }}</td>
