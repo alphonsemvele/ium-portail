@@ -1539,7 +1539,9 @@
         <div class="row gy-4">
             <div class="col-md-6 col-xl-3" data-aos="fade-up" data-aos-delay="80">
                 <div style="margin-bottom:14px;">
-                    <a href="#"><img src="{{ asset('images/logo.png') }}" style="height:58px;width:auto;" alt="IUM"></a>
+                    {{-- Le logo est détouré : sur ce bleu nuit, son texte bleu marine
+                         ne se lirait plus. Il garde donc son fond clair, ici seulement. --}}
+                    <a href="#"><img src="{{ asset('images/logo.png') }}" style="height:58px;width:auto;background:#fff;padding:6px 10px;border-radius:10px;" alt="IUM"></a>
                 </div>
                 <p style="color:rgba(255,255,255,.6);font-size:.83rem;line-height:1.65;margin-bottom:16px;">Institut Universitaire La Majestueuse de Ndazoa — Excellence, Professionnalisme, Avenir.</p>
                 <div class="th-social">
