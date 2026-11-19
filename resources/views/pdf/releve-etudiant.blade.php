@@ -71,9 +71,9 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .recap .mention { font-size: 12px; letter-spacing: .4px; }
 .bas-de-releve { page-break-inside: avoid; }
 .sig { width: 100%; margin-top: {{ $px(16) }}; border-collapse: collapse; }
-.sig td { text-align: center; font-size: 9px; width: 50%; vertical-align: top; padding-bottom: {{ $px(12) }}; }
-/* La place du cachet : il vient entre la fonction et le trait de signature. */
-.sig-espace { height: {{ $px(118) }}; }
+.sig td { text-align: center; font-size: 9px; width: 50%; vertical-align: top; padding-bottom: {{ $px(26) }}; }
+/* De l'air au-dessus du trait, et sous lui : la signature et le cachet y tiennent. */
+.sig-espace { height: {{ $px(74) }}; }
 .sig-line { border-top: 1px solid #999; width: 72%; margin: 0 auto; }
 </style>
 </head>
