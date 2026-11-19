@@ -30,9 +30,9 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .pied-page { position: fixed; bottom: 14px; left: 34px; right: 34px;
              border-top: 0.5px solid #ccc; padding-top: 5px;
              text-align: center; font-size: 7.4px; color: #666; line-height: 1.4; }
-/* Le logo délavé, posé une fois par page et peint sous le reste. */
-.filigrane { position: fixed; top: 92mm; left: 0; width: 210mm; text-align: center; }
-.filigrane img { width: 108mm; }
+/* Le logo délavé, répété d'un bord à l'autre, sur chaque page. */
+.filigrane { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; }
+.filigrane img { width: 210mm; height: 297mm; }
 .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .header-table td { vertical-align: middle; }
 .logo { height: 86px; }
@@ -86,8 +86,8 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     $logo = public_path($etab['logo'] ?? 'images/logo.png');
     $entete = $etab['entete'] ?? [];
 
-    // Le même logo, délavé, en fond de page.
-    $filigrane = \App\Support\Filigrane::depuis($logo);
+    // Le même logo, délavé et répété, en fond de page.
+    $filigrane = \App\Support\Filigrane::planche($logo);
 
     // Le releve porte l'annee de ses sessions ; a defaut, celle en cours.
     $anneeReleve = $globalStats['annee'] ?: AnneeAcademique::courante();
