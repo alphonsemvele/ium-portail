@@ -30,6 +30,9 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .pied-page { position: fixed; bottom: 14px; left: 34px; right: 34px;
              border-top: 0.5px solid #ccc; padding-top: 5px;
              text-align: center; font-size: 7.4px; color: #666; line-height: 1.4; }
+/* Le logo délavé, posé une fois par page et peint sous le reste. */
+.filigrane { position: fixed; top: 92mm; left: 0; width: 210mm; text-align: center; }
+.filigrane img { width: 108mm; }
 .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .header-table td { vertical-align: middle; }
 .logo { height: 86px; }
@@ -81,6 +84,9 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     $logo = public_path($etab['logo'] ?? 'images/logo.png');
     $entete = $etab['entete'] ?? [];
 
+    // Le même logo, délavé, en fond de page.
+    $filigrane = \App\Support\Filigrane::depuis($logo);
+
     // Le releve porte l'annee de ses sessions ; a defaut, celle en cours.
     $anneeReleve = $globalStats['annee'] ?: AnneeAcademique::courante();
     $niveau = $globalStats['niveau'] ?? $user->cycle?->name;
@@ -110,6 +116,10 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
     ])->filter()->implode(' — ');
 
 @endphp
+
+@if ($filigrane)
+    <div class="filigrane"><img src="{{ $filigrane }}" alt=""></div>
+@endif
 
 <table class="header-table">
     <tr>
