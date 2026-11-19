@@ -70,9 +70,11 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 .recap .v { text-align: right; font-weight: bold; }
 .recap .mention { font-size: 12px; letter-spacing: .4px; }
 .bas-de-releve { page-break-inside: avoid; }
-.sig { width: 100%; margin-top: {{ $px(21) }}; border-collapse: collapse; }
-.sig td { text-align: center; font-size: 9px; width: 50%; }
-.sig-line { border-top: 1px solid #999; margin: 16px 20px 0; }
+.sig { width: 100%; margin-top: {{ $px(16) }}; border-collapse: collapse; }
+.sig td { text-align: center; font-size: 9px; width: 50%; vertical-align: top; padding-bottom: {{ $px(12) }}; }
+/* La place du cachet : il vient entre la fonction et le trait de signature. */
+.sig-espace { height: {{ $px(118) }}; }
+.sig-line { border-top: 1px solid #999; width: 72%; margin: 0 auto; }
 </style>
 </head>
 <body>
@@ -293,8 +295,8 @@ body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1a1
 
 <table class="sig">
     <tr>
-        <td>Le Chef de Département<div class="sig-line"></div></td>
-        <td>Le Chef d'établissement<div class="sig-line"></div></td>
+        <td>Le Chef de Département<div class="sig-espace"></div><div class="sig-line"></div></td>
+        <td>Le Chef d'établissement<div class="sig-espace"></div><div class="sig-line"></div></td>
     </tr>
 </table>
 
